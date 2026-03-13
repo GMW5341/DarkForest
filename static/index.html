@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DarkForest — 투자 포트폴리오 분석기</title>
+    <title>DarkForest — Multi-Agent Debate 투자 분석기</title>
     <style>
         :root {
             --bg: #0a0a0f;
@@ -18,6 +18,7 @@
             --yellow: #ffc107;
             --red: #f44336;
             --orange: #ff9800;
+            --magenta: #e040fb;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -58,7 +59,7 @@
 
         .philosophy {
             background: var(--surface);
-            border-left: 3px solid var(--accent);
+            border-left: 3px solid var(--magenta);
             padding: 1rem 1.5rem;
             margin-bottom: 2rem;
             border-radius: 0 8px 8px 0;
@@ -169,6 +170,13 @@
         .btn-primary:hover { background: var(--accent-light); }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
+        .btn-debate {
+            background: var(--magenta);
+            color: white;
+        }
+        .btn-debate:hover { opacity: 0.9; }
+        .btn-debate:disabled { opacity: 0.5; cursor: not-allowed; }
+
         .btn-secondary {
             background: var(--surface-2);
             color: var(--text);
@@ -216,11 +224,95 @@
         }
 
         .verdict-strong_hold { background: #1b5e20; color: #a5d6a7; }
-        .verdict-hold { background: #2e7d32; color: #c8e6c9; }
+        .verdict-hold { background: #f57f17; color: #fff9c4; }
         .verdict-rebalance { background: #f57f17; color: #fff9c4; }
         .verdict-reduce { background: #e65100; color: #ffe0b2; }
         .verdict-exit { background: #b71c1c; color: #ffcdd2; }
         .verdict-needs_more_data { background: var(--surface-2); color: var(--text-dim); }
+
+        .decision-buy { background: #1b5e20; color: #a5d6a7; }
+        .decision-wait { background: #f57f17; color: #fff9c4; }
+        .decision-pass { background: #b71c1c; color: #ffcdd2; }
+        .decision-needs_more_data { background: var(--surface-2); color: var(--text-dim); }
+
+        /* ── Debate UI ── */
+        .debate-card {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+        }
+
+        .debate-round-header {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--magenta);
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 0.5rem;
+        }
+
+        .agent-message {
+            padding: 0.8rem;
+            margin: 0.5rem 0;
+            border-radius: 8px;
+            border-left: 3px solid var(--accent);
+        }
+
+        .agent-message.fundamental { border-left-color: #4fc3f7; }
+        .agent-message.valuation { border-left-color: var(--green); }
+        .agent-message.risk { border-left-color: var(--orange); }
+
+        .agent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .agent-name {
+            font-weight: 600;
+        }
+
+        .agent-stance {
+            font-size: 0.75rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .stance-buy { background: #1b5e20; color: #a5d6a7; }
+        .stance-wait { background: #f57f17; color: #fff9c4; }
+        .stance-pass { background: #b71c1c; color: #ffcdd2; }
+        .stance-needs_more_data { background: var(--surface-2); color: var(--text-dim); }
+
+        .agent-content {
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        .consensus-point {
+            padding: 0.3rem 0;
+            font-size: 0.85rem;
+        }
+
+        .consensus-point::before { content: "+ "; color: var(--green); font-weight: bold; }
+        .dissent-point::before { content: "? "; color: var(--yellow); font-weight: bold; }
+
+        .final-verdict {
+            text-align: center;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin: 1rem 0;
+        }
+
+        .final-verdict h3 {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+        }
 
         .frame-card {
             background: var(--surface-2);
@@ -247,11 +339,6 @@
             white-space: pre-wrap;
         }
 
-        .frame-card .evidence {
-            font-size: 0.8rem;
-            color: var(--text-dim);
-        }
-
         .issue-list, .plan-list {
             list-style: none;
             padding: 0;
@@ -275,7 +362,7 @@
             width: 40px;
             height: 40px;
             border: 3px solid var(--border);
-            border-top: 3px solid var(--accent);
+            border-top: 3px solid var(--magenta);
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin: 0 auto 1rem;
@@ -310,6 +397,18 @@
         .collapsible-body { display: none; margin-top: 1rem; }
         .collapsible-body.open { display: block; }
 
+        .mode-toggle {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .mode-toggle label {
+            font-size: 0.85rem;
+            color: var(--text);
+        }
+
         footer {
             text-align: center;
             padding: 2rem 0;
@@ -322,12 +421,12 @@
     <div class="container">
         <header>
             <h1><span>Dark</span>Forest</h1>
-            <p>Question Frame 기반 투자 포트폴리오 분석기</p>
+            <p>Multi-Agent Debate 투자 포트폴리오 분석기</p>
         </header>
 
         <div class="philosophy">
-            "결론이 100% 맞을 수는 없어도, 분석이 100% 맞지 않으면 안 된다.
-            결론은 결과의 문제이지만, 분석은 판단 당시의 논리 정합성의 문제이기 때문이다."
+            "3명의 AI 애널리스트가 서로 다른 관점에서 독립 분석하고,
+            토론을 통해 편향을 줄인 뒤, 투자위원회가 최종 판정을 내립니다."
         </div>
 
         <!-- Settings -->
@@ -344,6 +443,13 @@
                         <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
                         <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5</option>
                         <option value="claude-opus-4-6">Claude Opus 4.6</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Analysis Mode</label>
+                    <select id="analysisMode">
+                        <option value="debate">Debate Only (빠름)</option>
+                        <option value="full">Full (토론 + 프레임)</option>
                     </select>
                 </div>
             </div>
@@ -404,8 +510,8 @@
 
         <!-- Actions -->
         <div class="btn-row" style="justify-content: center;">
-            <button class="btn-primary" id="analyzeBtn" onclick="startAnalysis()">
-                Analyze Portfolio
+            <button class="btn-debate" id="analyzeBtn" onclick="startAnalysis()">
+                Start Multi-Agent Debate
             </button>
         </div>
 
@@ -414,9 +520,9 @@
             <div class="card">
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p>분석 중... 각 종목을 8개 Question Frame으로 평가하고 있습니다.</p>
+                    <p>AI 애널리스트들이 토론 중입니다...</p>
                     <p style="color:var(--text-dim); font-size:0.8rem; margin-top:0.5rem;">
-                        종목 수에 따라 수 분이 소요될 수 있습니다.
+                        펀더멘털 / 밸류에이션 / 리스크 애널리스트가 3라운드 토론 후 최종 판정을 내립니다.
                     </p>
                 </div>
             </div>
@@ -426,7 +532,7 @@
         <div id="results"></div>
 
         <footer>
-            DarkForest &mdash; 사고 훈련의 장으로서의 기업 분석
+            DarkForest &mdash; Multi-Agent Debate 기반 투자 의사결정 시스템
         </footer>
     </div>
 
@@ -444,12 +550,25 @@
         ];
 
         const VERDICT_LABELS = {
-            strong_hold: '유지 강화',
-            hold: '유지',
+            strong_hold: 'BUY',
+            hold: 'WAIT',
             rebalance: '리밸런싱',
             reduce: '비중 축소',
-            exit: '이탈 검토',
+            exit: 'PASS',
             needs_more_data: '판단 보류',
+        };
+
+        const DECISION_LABELS = {
+            buy: 'BUY',
+            wait: 'WAIT',
+            pass: 'PASS',
+            needs_more_data: 'HOLD',
+        };
+
+        const AGENT_CLASSES = {
+            '펀더멘털 애널리스트': 'fundamental',
+            '밸류에이션 애널리스트': 'valuation',
+            '리스크 애널리스트': 'risk',
         };
 
         let holdingCount = 0;
@@ -530,6 +649,8 @@
 
             const apiKey = document.getElementById('apiKey').value;
             const model = document.getElementById('model').value;
+            const mode = document.getElementById('analysisMode').value;
+            const debateOnly = mode === 'debate';
 
             const btn = document.getElementById('analyzeBtn');
             btn.disabled = true;
@@ -537,11 +658,15 @@
             document.getElementById('results').style.display = 'none';
 
             try {
-                // Start async job
                 const startRes = await fetch('/api/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ portfolio, api_key: apiKey || null, model }),
+                    body: JSON.stringify({
+                        portfolio,
+                        api_key: apiKey || null,
+                        model,
+                        debate_only: debateOnly,
+                    }),
                 });
 
                 if (!startRes.ok) {
@@ -551,7 +676,6 @@
 
                 const { job_id } = await startRes.json();
 
-                // Poll for completion
                 let result = null;
                 while (true) {
                     await new Promise(r => setTimeout(r, 3000));
@@ -584,6 +708,113 @@
             return 'var(--red)';
         }
 
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function renderDebate(debate) {
+            if (!debate) return '';
+
+            const roundLabels = {
+                opening: '1R: 독립 분석',
+                cross_examination: '2R: 상호 반론',
+                final: '3R: 최종 입장',
+            };
+
+            let html = '<div class="debate-card">';
+
+            // Rounds
+            for (const round of debate.rounds || []) {
+                const label = roundLabels[round.round_type] || `Round ${round.round_number}`;
+                html += `<div class="debate-round-header">${label}</div>`;
+
+                for (const msg of round.messages || []) {
+                    const agentClass = AGENT_CLASSES[msg.agent_name] || '';
+                    const stanceLabel = DECISION_LABELS[msg.stance] || msg.stance;
+                    const stanceClass = `stance-${msg.stance}`;
+
+                    html += `
+                        <div class="agent-message ${agentClass}">
+                            <div class="agent-header">
+                                <span class="agent-name">${escapeHtml(msg.agent_name)}</span>
+                                <span>
+                                    <span class="agent-stance ${stanceClass}">${stanceLabel}</span>
+                                    <span style="font-size:0.75rem;color:var(--text-dim);margin-left:0.5rem;">
+                                        ${(msg.confidence * 100).toFixed(0)}%
+                                    </span>
+                                </span>
+                            </div>
+                            <div class="agent-content">${escapeHtml(msg.content).substring(0, 500)}${msg.content.length > 500 ? '...' : ''}</div>
+                    `;
+
+                    if (msg.agreements?.length) {
+                        html += `<div style="margin-top:0.5rem;font-size:0.8rem;color:var(--green);">`;
+                        html += msg.agreements.slice(0, 3).map(a => `+ ${escapeHtml(a)}`).join('<br>');
+                        html += `</div>`;
+                    }
+                    if (msg.disagreements?.length) {
+                        html += `<div style="margin-top:0.3rem;font-size:0.8rem;color:var(--orange);">`;
+                        html += msg.disagreements.slice(0, 3).map(d => `- ${escapeHtml(d)}`).join('<br>');
+                        html += `</div>`;
+                    }
+
+                    html += `</div>`;
+                }
+            }
+
+            // Final decision
+            const decisionClass = `decision-${debate.final_decision}`;
+            const decisionLabel = DECISION_LABELS[debate.final_decision] || debate.final_decision;
+            html += `
+                <div class="final-verdict ${decisionClass}" style="margin-top:1rem;">
+                    <h3>투자위원회 판정: ${decisionLabel}</h3>
+                    <div class="score-bar" style="max-width:200px;margin:0.5rem auto;">
+                        <div class="score-fill" style="width:${(debate.final_confidence || 0) * 100}%;background:${scoreColor(debate.final_confidence || 0)}"></div>
+                    </div>
+                    <span style="font-size:0.85rem;">확신도: ${((debate.final_confidence || 0) * 100).toFixed(0)}%</span>
+                    <p style="margin-top:0.8rem;font-size:0.9rem;text-align:left;">${escapeHtml(debate.final_reasoning || '')}</p>
+                </div>
+            `;
+
+            // Consensus / Dissent
+            if (debate.consensus_points?.length) {
+                html += `<div style="margin-top:0.8rem;"><strong style="color:var(--green);">합의 포인트:</strong>`;
+                for (const pt of debate.consensus_points) {
+                    html += `<div class="consensus-point">${escapeHtml(pt)}</div>`;
+                }
+                html += `</div>`;
+            }
+            if (debate.dissent_points?.length) {
+                html += `<div style="margin-top:0.5rem;"><strong style="color:var(--yellow);">의견 불일치:</strong>`;
+                for (const pt of debate.dissent_points) {
+                    html += `<div class="consensus-point dissent-point">${escapeHtml(pt)}</div>`;
+                }
+                html += `</div>`;
+            }
+
+            // Price & Risk
+            if (debate.price_assessment) {
+                html += `<p style="margin-top:0.5rem;font-size:0.85rem;"><strong>적정가 평가:</strong> ${escapeHtml(debate.price_assessment)}</p>`;
+            }
+            if (debate.risk_summary) {
+                html += `<p style="font-size:0.85rem;"><strong>핵심 리스크:</strong> ${escapeHtml(debate.risk_summary)}</p>`;
+            }
+
+            // Action items
+            if (debate.action_items?.length) {
+                html += `<div style="margin-top:0.5rem;"><strong>행동 제안:</strong><ul class="plan-list">`;
+                for (const item of debate.action_items) {
+                    html += `<li>${escapeHtml(item)}</li>`;
+                }
+                html += `</ul></div>`;
+            }
+
+            html += `</div>`;
+            return html;
+        }
+
         function renderResults(r) {
             const el = document.getElementById('results');
             el.style.display = 'block';
@@ -594,8 +825,8 @@
             html += `
                 <div class="card">
                     <h2>Portfolio Analysis Summary</h2>
-                    <p style="margin-bottom:1rem;">${r.summary}</p>
-                    <label>Frame Integrity Score</label>
+                    <p style="margin-bottom:1rem;">${escapeHtml(r.summary)}</p>
+                    <label>Analysis Integrity Score</label>
                     <div class="score-bar">
                         <div class="score-fill" style="width:${r.frame_integrity_score * 100}%;background:${scoreColor(r.frame_integrity_score)}"></div>
                     </div>
@@ -608,45 +839,49 @@
                 const verdictLabel = VERDICT_LABELS[ha.overall_verdict] || ha.overall_verdict;
                 html += `<div class="card">
                     <h2 class="collapsible-header" onclick="toggleCollapse(this)">
-                        ${ha.name} (${ha.ticker})
+                        ${escapeHtml(ha.name)} (${escapeHtml(ha.ticker)})
                         <span class="verdict-badge verdict-${ha.overall_verdict}">${verdictLabel}</span>
                     </h2>
                     <div class="collapsible-body">
-                        <p style="margin-bottom:1rem;">${ha.verdict_reasoning}</p>
+                        <p style="margin-bottom:1rem;">${escapeHtml(ha.verdict_reasoning)}</p>
                 `;
 
+                // Debate result
+                if (ha.debate_result) {
+                    html += `<h3 style="margin:1rem 0 0.5rem;color:var(--magenta);font-size:1rem;">Multi-Agent Debate</h3>`;
+                    html += renderDebate(ha.debate_result);
+                }
+
+                // Action items
                 if (ha.action_items?.length) {
-                    html += `<p style="font-weight:600;margin-bottom:0.3rem;">Action Items:</p><ul class="plan-list">`;
+                    html += `<p style="font-weight:600;margin:1rem 0 0.3rem;">Action Items:</p><ul class="plan-list">`;
                     for (const item of ha.action_items) {
-                        html += `<li>${item}</li>`;
+                        html += `<li>${escapeHtml(item)}</li>`;
                     }
                     html += `</ul>`;
                 }
 
-                for (const fa of ha.frame_analyses) {
-                    html += `
-                        <div class="frame-card">
-                            <h4>${fa.frame_name}</h4>
-                            <div class="question">${fa.question}</div>
-                            <div class="reasoning">${fa.reasoning}</div>
-                            <div style="margin:0.3rem 0;">
-                                <strong>Conclusion:</strong> ${fa.conclusion}
+                // Frame analyses
+                if (ha.frame_analyses?.length) {
+                    html += `<h3 style="margin:1rem 0 0.5rem;color:var(--accent-light);font-size:1rem;">Question Frame Analysis</h3>`;
+                    for (const fa of ha.frame_analyses) {
+                        html += `
+                            <div class="frame-card">
+                                <h4>${escapeHtml(fa.frame_name)}</h4>
+                                <div class="question">${escapeHtml(fa.question)}</div>
+                                <div class="reasoning">${escapeHtml(fa.reasoning).substring(0, 300)}${fa.reasoning.length > 300 ? '...' : ''}</div>
+                                <div style="margin:0.3rem 0;">
+                                    <strong>Conclusion:</strong> ${escapeHtml(fa.conclusion)}
+                                </div>
+                                <div class="score-bar" style="max-width:200px;">
+                                    <div class="score-fill" style="width:${fa.confidence * 100}%;background:${scoreColor(fa.confidence)}"></div>
+                                </div>
+                                <span style="font-size:0.75rem;color:${scoreColor(fa.confidence)}">
+                                    Confidence: ${(fa.confidence * 100).toFixed(0)}%
+                                </span>
                             </div>
-                            <div class="score-bar" style="max-width:200px;">
-                                <div class="score-fill" style="width:${fa.confidence * 100}%;background:${scoreColor(fa.confidence)}"></div>
-                            </div>
-                            <span style="font-size:0.75rem;color:${scoreColor(fa.confidence)}">
-                                Confidence: ${(fa.confidence * 100).toFixed(0)}%
-                            </span>
-                    `;
-                    if (fa.evidence?.length) {
-                        html += `<div class="evidence" style="margin-top:0.5rem;"><strong>Evidence:</strong><ul>`;
-                        for (const e of fa.evidence) {
-                            html += `<li>${e}</li>`;
-                        }
-                        html += `</ul></div>`;
+                        `;
                     }
-                    html += `</div>`;
                 }
 
                 html += `</div></div>`;
@@ -656,7 +891,7 @@
             if (r.structural_issues?.length) {
                 html += `<div class="card"><h2>Structural Issues</h2><ul class="issue-list">`;
                 for (const issue of r.structural_issues) {
-                    html += `<li>${issue}</li>`;
+                    html += `<li>${escapeHtml(issue)}</li>`;
                 }
                 html += `</ul></div>`;
             }
@@ -665,14 +900,14 @@
             if (r.improvement_plan?.length) {
                 html += `<div class="card"><h2>Improvement Plan</h2><ul class="plan-list">`;
                 for (const plan of r.improvement_plan) {
-                    html += `<li>${plan}</li>`;
+                    html += `<li>${escapeHtml(plan)}</li>`;
                 }
                 html += `</ul></div>`;
             }
 
             // Risk assessment
             if (r.risk_assessment) {
-                html += `<div class="card"><h2>Risk Assessment</h2><p>${r.risk_assessment}</p></div>`;
+                html += `<div class="card"><h2>Risk Assessment</h2><p>${escapeHtml(r.risk_assessment)}</p></div>`;
             }
 
             el.innerHTML = html;

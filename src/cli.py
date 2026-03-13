@@ -1,11 +1,12 @@
 """
 CLI Entry Point — 커맨드라인 인터페이스.
 
-포트폴리오 JSON 파일을 입력받아 분석을 실행한다.
+포트폴리오 JSON 파일을 입력받아 Multi-Agent Debate 기반 분석을 실행한다.
 
 Usage:
-    python -m src.cli portfolio.json
-    python -m src.cli --example  # 예시 포트폴리오로 실행
+    python -m src.cli portfolio.json              # 토론 + 프레임 (풀 모드)
+    python -m src.cli portfolio.json --debate-only # 토론만 (빠른 모드)
+    python -m src.cli --example                    # 예시 포트폴리오로 실행
 """
 
 from __future__ import annotations
@@ -83,15 +84,23 @@ def _load_portfolio(path: str) -> Portfolio:
     return Portfolio(**data)
 
 
-async def _run(portfolio: Portfolio, api_key: str | None, model: str) -> None:
+async def _run(
+    portfolio: Portfolio,
+    api_key: str | None,
+    model: str,
+    debate_only: bool,
+) -> None:
     analyzer = PortfolioAnalyzer(api_key=api_key, model=model)
-    result = await analyzer.analyze(portfolio)
+    if debate_only:
+        result = await analyzer.debate(portfolio)
+    else:
+        result = await analyzer.analyze(portfolio)
     display_analysis(result)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="DarkForest — 투자 포트폴리오 분석기",
+        description="DarkForest — Multi-Agent Debate 투자 포트폴리오 분석기",
     )
     parser.add_argument(
         "portfolio_file",
@@ -102,6 +111,11 @@ def main() -> None:
         "--example",
         action="store_true",
         help="예시 포트폴리오로 분석 실행",
+    )
+    parser.add_argument(
+        "--debate-only",
+        action="store_true",
+        help="토론만 실행 (Question Frame 분석 생략 — 빠른 모드)",
     )
     parser.add_argument(
         "--api-key",
@@ -123,7 +137,7 @@ def main() -> None:
         parser.print_help()
         sys.exit(1)
 
-    asyncio.run(_run(portfolio, args.api_key, args.model))
+    asyncio.run(_run(portfolio, args.api_key, args.model, args.debate_only))
 
 
 if __name__ == "__main__":

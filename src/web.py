@@ -1,7 +1,7 @@
 """
 DarkForest Web Server — FastAPI 기반 웹 API.
 
-포트폴리오 분석을 REST API로 제공한다.
+Multi-Agent Debate 포트폴리오 분석을 REST API로 제공한다.
 """
 
 from __future__ import annotations
@@ -41,8 +41,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="DarkForest",
-    description="투자 포트폴리오 분석기 — Question Frame 기반 추론 엔진",
-    version="0.1.0",
+    description="Multi-Agent Debate 투자 포트폴리오 분석기",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -60,6 +60,10 @@ class AnalyzeRequest(BaseModel):
     portfolio: Portfolio
     api_key: str | None = Field(default=None, description="Anthropic API 키 (선택)")
     model: str = Field(default="claude-sonnet-4-20250514")
+    debate_only: bool = Field(
+        default=False,
+        description="True면 토론만 실행 (빠른 모드)",
+    )
 
 
 class AnalyzeResponse(BaseModel):
@@ -89,9 +93,10 @@ async def start_analysis(req: AnalyzeRequest):
     job = AnalysisJob(job_id=job_id, status="running")
     _jobs[job_id] = job
 
-    # 분석 실행 (백그라운드 태스크 대신 직접 await — 간결함 우선)
     import asyncio
-    asyncio.create_task(_run_analysis(job, req.portfolio, api_key, req.model))
+    asyncio.create_task(
+        _run_analysis(job, req.portfolio, api_key, req.model, req.debate_only)
+    )
 
     return AnalyzeResponse(job_id=job_id, status="running")
 
@@ -101,10 +106,14 @@ async def _run_analysis(
     portfolio: Portfolio,
     api_key: str,
     model: str,
+    debate_only: bool,
 ) -> None:
     try:
         analyzer = PortfolioAnalyzer(api_key=api_key, model=model)
-        result = await analyzer.analyze(portfolio)
+        if debate_only:
+            result = await analyzer.debate(portfolio)
+        else:
+            result = await analyzer.analyze(portfolio)
         job.result = result
         job.status = "completed"
     except Exception as e:
@@ -138,6 +147,8 @@ async def analyze_sync(req: AnalyzeRequest):
 
     try:
         analyzer = PortfolioAnalyzer(api_key=api_key, model=req.model)
+        if req.debate_only:
+            return await analyzer.debate(req.portfolio)
         return await analyzer.analyze(req.portfolio)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -145,11 +156,10 @@ async def analyze_sync(req: AnalyzeRequest):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "service": "darkforest"}
+    return {"status": "ok", "service": "darkforest", "version": "0.2.0"}
 
 
 # ── Static files (프론트엔드) ──
-# index.html을 루트에서 서빙
 _static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
 
 

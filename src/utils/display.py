@@ -1,4 +1,4 @@
-"""분석 결과 출력 유틸리티."""
+"""분석 결과 출력 유틸리티 — Multi-Agent Debate 포함."""
 
 from __future__ import annotations
 
@@ -7,7 +7,12 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from src.models.analysis import PortfolioAnalysis, Verdict
+from src.models.analysis import (
+    DebateResult,
+    InvestmentDecision,
+    PortfolioAnalysis,
+    Verdict,
+)
 
 console = Console()
 
@@ -21,13 +26,103 @@ VERDICT_COLORS = {
 }
 
 VERDICT_LABELS = {
-    Verdict.STRONG_HOLD: "유지 강화",
-    Verdict.HOLD: "유지",
+    Verdict.STRONG_HOLD: "매수 (BUY)",
+    Verdict.HOLD: "대기 (WAIT)",
     Verdict.REBALANCE: "리밸런싱",
     Verdict.REDUCE: "비중 축소",
-    Verdict.EXIT: "이탈 검토",
+    Verdict.EXIT: "패스 (PASS)",
     Verdict.NEEDS_MORE_DATA: "판단 보류",
 }
+
+DECISION_COLORS = {
+    InvestmentDecision.BUY: "bold green",
+    InvestmentDecision.WAIT: "yellow",
+    InvestmentDecision.PASS: "bold red",
+    InvestmentDecision.NEEDS_MORE_DATA: "dim",
+}
+
+DECISION_LABELS = {
+    InvestmentDecision.BUY: "BUY",
+    InvestmentDecision.WAIT: "WAIT",
+    InvestmentDecision.PASS: "PASS",
+    InvestmentDecision.NEEDS_MORE_DATA: "HOLD",
+}
+
+
+def display_debate(debate: DebateResult) -> None:
+    """토론 결과를 터미널에 출력."""
+    console.print()
+    console.print(Panel(
+        f"[bold]{debate.target_company}[/] ({debate.target_ticker})",
+        title="Multi-Agent Debate",
+        border_style="magenta",
+    ))
+
+    # 라운드별 출력
+    round_labels = {
+        "opening": "1R: 독립 분석",
+        "cross_examination": "2R: 상호 반론",
+        "final": "3R: 최종 입장",
+    }
+
+    for rnd in debate.rounds:
+        label = round_labels.get(rnd.round_type, f"Round {rnd.round_number}")
+        console.print(f"\n[bold cyan]--- {label} ---[/]")
+
+        for msg in rnd.messages:
+            stance_style = DECISION_COLORS.get(msg.stance, "dim")
+            stance_label = DECISION_LABELS.get(msg.stance, "?")
+
+            console.print(
+                f"\n  [bold]{msg.agent_name}[/] → "
+                f"[{stance_style}]{stance_label}[/] "
+                f"(확신도: {msg.confidence:.0%})"
+            )
+            # 내용은 들여쓰기로 출력
+            for line in msg.content.split("\n"):
+                if line.strip():
+                    console.print(f"    {line.strip()}")
+
+            if msg.agreements:
+                console.print(f"    [green]동의:[/] {', '.join(msg.agreements[:3])}")
+            if msg.disagreements:
+                console.print(f"    [red]반론:[/] {', '.join(msg.disagreements[:3])}")
+
+    # 최종 판정
+    console.print()
+    decision_style = DECISION_COLORS.get(debate.final_decision, "dim")
+    decision_label = DECISION_LABELS.get(debate.final_decision, "?")
+
+    console.print(Panel(
+        f"판정: [{decision_style}][bold]{decision_label}[/bold][/] "
+        f"(확신도: {debate.final_confidence:.0%})\n\n"
+        f"{debate.final_reasoning}",
+        title="투자위원회 최종 판정",
+        border_style=decision_style.replace("bold ", ""),
+    ))
+
+    # 합의/불일치 포인트
+    if debate.consensus_points:
+        console.print("\n[bold green]합의 포인트:[/]")
+        for pt in debate.consensus_points:
+            console.print(f"  + {pt}")
+
+    if debate.dissent_points:
+        console.print("\n[bold yellow]의견 불일치:[/]")
+        for pt in debate.dissent_points:
+            console.print(f"  ? {pt}")
+
+    # 적정가 & 리스크
+    if debate.price_assessment:
+        console.print(f"\n[bold]적정가 평가:[/] {debate.price_assessment}")
+    if debate.risk_summary:
+        console.print(f"[bold]핵심 리스크:[/] {debate.risk_summary}")
+
+    # 행동 제안
+    if debate.action_items:
+        console.print("\n[bold]행동 제안:[/]")
+        for i, item in enumerate(debate.action_items, 1):
+            console.print(f"  {i}. {item}")
 
 
 def display_analysis(result: PortfolioAnalysis) -> None:
@@ -61,24 +156,29 @@ def display_analysis(result: PortfolioAnalysis) -> None:
             border_style="cyan",
         ))
 
-        # 프레임별 분석 테이블
-        table = Table(title="프레임별 분석", show_lines=True)
-        table.add_column("프레임", style="bold", width=20)
-        table.add_column("결론", width=40)
-        table.add_column("정합성", justify="center", width=8)
+        # 토론 결과가 있으면 토론 내용 표시
+        if ha.debate_result:
+            display_debate(ha.debate_result)
 
-        for fa in ha.frame_analyses:
-            conf_color = (
-                "green" if fa.confidence >= 0.7
-                else "yellow" if fa.confidence >= 0.5
-                else "red"
-            )
-            table.add_row(
-                fa.frame_name,
-                fa.conclusion[:80] + ("..." if len(fa.conclusion) > 80 else ""),
-                Text(f"{fa.confidence:.0%}", style=conf_color),
-            )
-        console.print(table)
+        # 프레임별 분석 테이블 (있는 경우)
+        if ha.frame_analyses:
+            table = Table(title="프레임별 분석", show_lines=True)
+            table.add_column("프레임", style="bold", width=20)
+            table.add_column("결론", width=40)
+            table.add_column("정합성", justify="center", width=8)
+
+            for fa in ha.frame_analyses:
+                conf_color = (
+                    "green" if fa.confidence >= 0.7
+                    else "yellow" if fa.confidence >= 0.5
+                    else "red"
+                )
+                table.add_row(
+                    fa.frame_name,
+                    fa.conclusion[:80] + ("..." if len(fa.conclusion) > 80 else ""),
+                    Text(f"{fa.confidence:.0%}", style=conf_color),
+                )
+            console.print(table)
 
         # 행동 제안
         if ha.action_items:
