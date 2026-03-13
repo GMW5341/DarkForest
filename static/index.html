@@ -31,406 +31,132 @@
             min-height: 100vh;
         }
 
-        .container {
-            max-width: 960px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem;
-        }
+        .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
 
-        header {
-            text-align: center;
-            margin-bottom: 3rem;
-            padding: 2rem 0;
-        }
-
-        header h1 {
-            font-size: 2.2rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            margin-bottom: 0.5rem;
-        }
-
+        header { text-align: center; margin-bottom: 2rem; padding: 2rem 0; }
+        header h1 { font-size: 2.2rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
         header h1 span { color: var(--accent); }
-
-        header p {
-            color: var(--text-dim);
-            font-size: 0.95rem;
-        }
+        header p { color: var(--text-dim); font-size: 0.95rem; }
 
         .philosophy {
-            background: var(--surface);
-            border-left: 3px solid var(--magenta);
-            padding: 1rem 1.5rem;
-            margin-bottom: 2rem;
-            border-radius: 0 8px 8px 0;
-            font-size: 0.88rem;
-            color: var(--text-dim);
-            font-style: italic;
+            background: var(--surface); border-left: 3px solid var(--magenta);
+            padding: 1rem 1.5rem; margin-bottom: 2rem; border-radius: 0 8px 8px 0;
+            font-size: 0.88rem; color: var(--text-dim); font-style: italic;
         }
 
-        /* ── Form ── */
         .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;
         }
+        .card h2 { font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
 
-        .card h2 {
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
+        .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
         .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
 
-        label {
-            font-size: 0.8rem;
-            color: var(--text-dim);
-            font-weight: 500;
-        }
+        label { font-size: 0.8rem; color: var(--text-dim); font-weight: 500; }
 
         input, select, textarea {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 0.6rem 0.8rem;
-            color: var(--text);
-            font-size: 0.9rem;
-            outline: none;
-            transition: border-color 0.2s;
+            background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+            padding: 0.6rem 0.8rem; color: var(--text); font-size: 0.9rem; outline: none;
+            transition: border-color 0.2s; font-family: inherit;
         }
-
-        input:focus, select:focus, textarea:focus {
-            border-color: var(--accent);
-        }
-
+        input:focus, select:focus, textarea:focus { border-color: var(--accent); }
         textarea { resize: vertical; min-height: 60px; }
 
-        /* ── Holdings table ── */
-        .holdings-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.85rem;
-            margin-top: 0.5rem;
-        }
+        .holdings-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.5rem; }
+        .holdings-table th { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); color: var(--text-dim); font-weight: 500; font-size: 0.75rem; }
+        .holdings-table td { padding: 0.5rem; border-bottom: 1px solid var(--border); }
+        .holdings-table input, .holdings-table select { width: 100%; padding: 0.4rem; font-size: 0.82rem; }
 
-        .holdings-table th {
-            text-align: left;
-            padding: 0.5rem;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-dim);
-            font-weight: 500;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-        }
+        .btn-row { display: flex; gap: 0.8rem; margin-top: 1rem; }
 
-        .holdings-table td {
-            padding: 0.5rem;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .holdings-table input, .holdings-table select {
-            width: 100%;
-            padding: 0.4rem;
-            font-size: 0.82rem;
-        }
-
-        .btn-row {
-            display: flex;
-            gap: 0.8rem;
-            margin-top: 1rem;
-        }
-
-        button {
-            cursor: pointer;
-            border: none;
-            border-radius: 8px;
-            padding: 0.7rem 1.5rem;
-            font-size: 0.9rem;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-
-        .btn-primary {
-            background: var(--accent);
-            color: white;
-        }
-
+        button { cursor: pointer; border: none; border-radius: 8px; padding: 0.7rem 1.5rem; font-size: 0.9rem; font-weight: 600; transition: all 0.2s; font-family: inherit; }
+        .btn-primary { background: var(--accent); color: white; }
         .btn-primary:hover { background: var(--accent-light); }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .btn-debate {
-            background: var(--magenta);
-            color: white;
-        }
+        .btn-debate { background: var(--magenta); color: white; }
         .btn-debate:hover { opacity: 0.9; }
         .btn-debate:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .btn-secondary {
-            background: var(--surface-2);
-            color: var(--text);
-            border: 1px solid var(--border);
-        }
-
+        .btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
         .btn-secondary:hover { background: var(--border); }
+        .btn-danger { background: transparent; color: var(--red); border: 1px solid var(--red); padding: 0.3rem 0.6rem; font-size: 0.75rem; }
+        .btn-small { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+        .btn-green { background: var(--green); color: white; }
+        .btn-green:hover { opacity: 0.9; }
+        .btn-yellow { background: #f57f17; color: white; }
+        .btn-yellow:hover { opacity: 0.9; }
 
-        .btn-danger {
-            background: transparent;
-            color: var(--red);
-            border: 1px solid var(--red);
-            padding: 0.3rem 0.6rem;
-            font-size: 0.75rem;
-        }
+        .score-bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; margin: 0.5rem 0; }
+        .score-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
 
-        .btn-small {
-            padding: 0.4rem 0.8rem;
-            font-size: 0.8rem;
-        }
+        .verdict-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
 
-        /* ── Results ── */
-        #results { display: none; }
+        .stance-buy, .decision-buy { background: #1b5e20; color: #a5d6a7; }
+        .stance-wait, .decision-wait { background: #f57f17; color: #fff9c4; }
+        .stance-pass, .decision-pass { background: #b71c1c; color: #ffcdd2; }
+        .stance-needs_more_data, .decision-needs_more_data { background: var(--surface-2); color: var(--text-dim); }
 
-        .score-bar {
-            height: 8px;
-            background: var(--surface-2);
-            border-radius: 4px;
-            overflow: hidden;
-            margin: 0.5rem 0;
-        }
-
-        .score-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.5s ease;
-        }
-
-        .verdict-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .verdict-strong_hold { background: #1b5e20; color: #a5d6a7; }
-        .verdict-hold { background: #f57f17; color: #fff9c4; }
-        .verdict-rebalance { background: #f57f17; color: #fff9c4; }
-        .verdict-reduce { background: #e65100; color: #ffe0b2; }
-        .verdict-exit { background: #b71c1c; color: #ffcdd2; }
-        .verdict-needs_more_data { background: var(--surface-2); color: var(--text-dim); }
-
-        .decision-buy { background: #1b5e20; color: #a5d6a7; }
-        .decision-wait { background: #f57f17; color: #fff9c4; }
-        .decision-pass { background: #b71c1c; color: #ffcdd2; }
-        .decision-needs_more_data { background: var(--surface-2); color: var(--text-dim); }
-
-        /* ── Debate UI ── */
-        .debate-card {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 0.5rem 0;
-        }
-
-        .debate-round-header {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--magenta);
-            padding: 0.5rem 0;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 0.5rem;
-        }
-
-        .agent-message {
-            padding: 0.8rem;
-            margin: 0.5rem 0;
-            border-radius: 8px;
-            border-left: 3px solid var(--accent);
-        }
-
+        .agent-message { padding: 0.8rem; margin: 0.5rem 0; border-radius: 8px; border-left: 3px solid var(--accent); }
         .agent-message.fundamental { border-left-color: #4fc3f7; }
         .agent-message.valuation { border-left-color: var(--green); }
         .agent-message.risk { border-left-color: var(--orange); }
+        .agent-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 0.85rem; }
+        .agent-name { font-weight: 600; }
+        .agent-stance { font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 12px; font-weight: 600; }
+        .agent-content { font-size: 0.85rem; white-space: pre-wrap; line-height: 1.5; }
 
-        .agent-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-            font-size: 0.85rem;
+        .feedback-box {
+            background: var(--surface-2); border: 2px solid var(--yellow);
+            border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;
         }
+        .feedback-box h3 { color: var(--yellow); font-size: 1rem; margin-bottom: 0.8rem; }
+        .feedback-box textarea { width: 100%; min-height: 80px; margin-bottom: 0.8rem; }
+        .feedback-box input { width: 100%; margin-bottom: 0.5rem; }
+        .feedback-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 0.8rem; }
 
-        .agent-name {
-            font-weight: 600;
+        .phase-indicator {
+            display: flex; justify-content: center; gap: 0.5rem; margin: 1.5rem 0;
         }
-
-        .agent-stance {
-            font-size: 0.75rem;
-            padding: 0.15rem 0.5rem;
-            border-radius: 12px;
-            font-weight: 600;
+        .phase-step {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: var(--border); transition: all 0.3s;
         }
+        .phase-step.active { background: var(--magenta); transform: scale(1.3); }
+        .phase-step.done { background: var(--green); }
+        .phase-label { font-size: 0.7rem; color: var(--text-dim); text-align: center; margin-top: 0.3rem; }
 
-        .stance-buy { background: #1b5e20; color: #a5d6a7; }
-        .stance-wait { background: #f57f17; color: #fff9c4; }
-        .stance-pass { background: #b71c1c; color: #ffcdd2; }
-        .stance-needs_more_data { background: var(--surface-2); color: var(--text-dim); }
+        .final-verdict { text-align: center; padding: 1.5rem; border-radius: 12px; margin: 1rem 0; }
+        .final-verdict h3 { font-size: 1.3rem; margin-bottom: 0.5rem; }
 
-        .agent-content {
-            font-size: 0.85rem;
-            white-space: pre-wrap;
-            line-height: 1.5;
-        }
-
-        .consensus-point {
-            padding: 0.3rem 0;
-            font-size: 0.85rem;
-        }
-
+        .consensus-point { padding: 0.3rem 0; font-size: 0.85rem; }
         .consensus-point::before { content: "+ "; color: var(--green); font-weight: bold; }
         .dissent-point::before { content: "? "; color: var(--yellow); font-weight: bold; }
 
-        .final-verdict {
-            text-align: center;
-            padding: 1.5rem;
-            border-radius: 12px;
-            margin: 1rem 0;
-        }
-
-        .final-verdict h3 {
-            font-size: 1.3rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .frame-card {
-            background: var(--surface-2);
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 0.5rem 0;
-        }
-
-        .frame-card h4 {
-            font-size: 0.9rem;
-            margin-bottom: 0.3rem;
-            color: var(--accent-light);
-        }
-
-        .frame-card .question {
-            font-size: 0.8rem;
-            color: var(--text-dim);
-            margin-bottom: 0.5rem;
-        }
-
-        .frame-card .reasoning {
-            font-size: 0.85rem;
-            margin-bottom: 0.5rem;
-            white-space: pre-wrap;
-        }
-
-        .issue-list, .plan-list {
-            list-style: none;
-            padding: 0;
-        }
-
-        .issue-list li, .plan-list li {
-            padding: 0.5rem 0;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.9rem;
-        }
-
-        .issue-list li::before { content: "! "; color: var(--red); font-weight: bold; }
-        .plan-list li::before { content: "> "; color: var(--green); font-weight: bold; }
-
-        .loading {
-            text-align: center;
-            padding: 3rem;
-        }
-
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--border);
-            border-top: 3px solid var(--magenta);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
-        }
-
+        .loading { text-align: center; padding: 2rem; }
+        .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top: 3px solid var(--magenta); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        .error-msg {
-            background: #1a0000;
-            border: 1px solid var(--red);
-            border-radius: 8px;
-            padding: 1rem;
-            color: #ff8a80;
-        }
+        .error-msg { background: #1a0000; border: 1px solid var(--red); border-radius: 8px; padding: 1rem; color: #ff8a80; }
 
-        .collapsible-header {
-            cursor: pointer;
-            user-select: none;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+        .hidden { display: none !important; }
 
-        .collapsible-header::after {
-            content: "+";
-            font-size: 1.2rem;
-            color: var(--text-dim);
-        }
-
-        .collapsible-header.open::after { content: "-"; }
-
-        .collapsible-body { display: none; margin-top: 1rem; }
-        .collapsible-body.open { display: block; }
-
-        .mode-toggle {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .mode-toggle label {
-            font-size: 0.85rem;
-            color: var(--text);
-        }
-
-        footer {
-            text-align: center;
-            padding: 2rem 0;
-            color: var(--text-dim);
-            font-size: 0.8rem;
-        }
+        footer { text-align: center; padding: 2rem 0; color: var(--text-dim); font-size: 0.8rem; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1><span>Dark</span>Forest</h1>
-            <p>Multi-Agent Debate 투자 포트폴리오 분석기</p>
+            <p>Multi-Agent Debate 투자 분석기 &mdash; Human-in-the-Loop</p>
         </header>
 
         <div class="philosophy">
-            "3명의 AI 애널리스트가 서로 다른 관점에서 독립 분석하고,
-            토론을 통해 편향을 줄인 뒤, 투자위원회가 최종 판정을 내립니다."
+            "3명의 AI 애널리스트가 토론하고, 당신이 매 라운드마다 조율합니다.
+            최종 판정은 AI가 내리되, 당신의 관점이 반영됩니다."
         </div>
 
         <!-- Settings -->
-        <div class="card">
+        <div class="card" id="settingsCard">
             <h2>Settings</h2>
             <div class="form-row">
                 <div class="form-group">
@@ -446,481 +172,486 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Analysis Mode</label>
+                    <label>Mode</label>
                     <select id="analysisMode">
-                        <option value="debate">Debate Only (빠름)</option>
-                        <option value="full">Full (토론 + 프레임)</option>
+                        <option value="interactive">Interactive (Human-in-the-Loop)</option>
+                        <option value="auto">Auto (자동 실행)</option>
                     </select>
                 </div>
             </div>
         </div>
 
-        <!-- Portfolio Meta -->
-        <div class="card">
-            <h2>Portfolio Info</h2>
+        <!-- Holding input (단일 종목 분석용) -->
+        <div class="card" id="holdingCard">
+            <h2>Holding to Analyze</h2>
             <div class="form-row">
-                <div class="form-group">
-                    <label>Portfolio Name</label>
-                    <input type="text" id="portfolioName" value="My Portfolio">
-                </div>
-                <div class="form-group">
-                    <label>Investment Goal</label>
-                    <input type="text" id="investmentGoal" placeholder="e.g. long-term growth">
-                </div>
-                <div class="form-group">
-                    <label>Risk Tolerance</label>
-                    <select id="riskTolerance">
-                        <option value="conservative">Conservative</option>
-                        <option value="moderate" selected>Moderate</option>
-                        <option value="aggressive">Aggressive</option>
+                <div class="form-group"><label>Ticker</label><input type="text" id="hTicker" placeholder="005930"></div>
+                <div class="form-group"><label>Name</label><input type="text" id="hName" placeholder="삼성전자"></div>
+                <div class="form-group"><label>Asset Type</label>
+                    <select id="hType">
+                        <option value="stock_kr">Stock (KR)</option>
+                        <option value="stock_us">Stock (US)</option>
+                        <option value="etf">ETF</option>
+                        <option value="bond">Bond</option>
+                        <option value="crypto">Crypto</option>
                     </select>
                 </div>
             </div>
-            <div class="form-row" style="grid-template-columns: 1fr;">
-                <div class="form-group">
-                    <label>Investment Horizon</label>
-                    <input type="text" id="investmentHorizon" placeholder="e.g. 5 years" value="5년+">
+            <div class="form-row">
+                <div class="form-group"><label>Quantity</label><input type="number" id="hQty" value="100" min="0"></div>
+                <div class="form-group"><label>Avg Price</label><input type="number" id="hAvgPrice" value="72000" min="0"></div>
+                <div class="form-group"><label>Current Price</label><input type="number" id="hCurPrice" value="68000" min="0"></div>
+            </div>
+            <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                <div class="form-group"><label>Sector</label><input type="text" id="hSector" placeholder="반도체"></div>
+                <div class="form-group"><label>Memo (매수 근거)</label><input type="text" id="hMemo" placeholder="AI 반도체 수요 증가 기대"></div>
+            </div>
+            <div class="btn-row">
+                <button class="btn-secondary btn-small" onclick="loadExampleHolding()">Load Example</button>
+            </div>
+        </div>
+
+        <!-- Start -->
+        <div class="btn-row" style="justify-content: center;" id="startArea">
+            <button class="btn-debate" id="startBtn" onclick="startDebate()">Start Debate</button>
+        </div>
+
+        <!-- Phase Indicator -->
+        <div id="phaseArea" class="hidden">
+            <div class="phase-indicator">
+                <div>
+                    <div class="phase-step" id="phase1"></div>
+                    <div class="phase-label">R1</div>
+                </div>
+                <div>
+                    <div class="phase-step" id="phaseFb1"></div>
+                    <div class="phase-label">FB</div>
+                </div>
+                <div>
+                    <div class="phase-step" id="phase2"></div>
+                    <div class="phase-label">R2</div>
+                </div>
+                <div>
+                    <div class="phase-step" id="phaseFb2"></div>
+                    <div class="phase-label">FB</div>
+                </div>
+                <div>
+                    <div class="phase-step" id="phase3"></div>
+                    <div class="phase-label">R3</div>
+                </div>
+                <div>
+                    <div class="phase-step" id="phaseFb3"></div>
+                    <div class="phase-label">FB</div>
+                </div>
+                <div>
+                    <div class="phase-step" id="phaseFinal"></div>
+                    <div class="phase-label">판정</div>
                 </div>
             </div>
-        </div>
-
-        <!-- Holdings -->
-        <div class="card">
-            <h2>Holdings</h2>
-            <table class="holdings-table">
-                <thead>
-                    <tr>
-                        <th>Ticker</th>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Qty</th>
-                        <th>Avg Price</th>
-                        <th>Current</th>
-                        <th>Sector</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody id="holdingsBody"></tbody>
-            </table>
-            <div class="btn-row">
-                <button class="btn-secondary btn-small" onclick="addHolding()">+ Add Holding</button>
-                <button class="btn-secondary btn-small" onclick="loadExample()">Load Example</button>
-            </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="btn-row" style="justify-content: center;">
-            <button class="btn-debate" id="analyzeBtn" onclick="startAnalysis()">
-                Start Multi-Agent Debate
-            </button>
         </div>
 
         <!-- Loading -->
-        <div id="loading" style="display:none;">
+        <div id="loading" class="hidden">
             <div class="card">
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p>AI 애널리스트들이 토론 중입니다...</p>
-                    <p style="color:var(--text-dim); font-size:0.8rem; margin-top:0.5rem;">
-                        펀더멘털 / 밸류에이션 / 리스크 애널리스트가 3라운드 토론 후 최종 판정을 내립니다.
-                    </p>
+                    <p id="loadingText">AI 애널리스트들이 분석 중...</p>
                 </div>
             </div>
         </div>
 
-        <!-- Results -->
-        <div id="results"></div>
+        <!-- Debate Area -->
+        <div id="debateArea" class="hidden"></div>
 
-        <footer>
-            DarkForest &mdash; Multi-Agent Debate 기반 투자 의사결정 시스템
-        </footer>
+        <!-- Feedback Area -->
+        <div id="feedbackArea" class="hidden"></div>
+
+        <!-- Result Area -->
+        <div id="resultArea" class="hidden"></div>
+
+        <footer>DarkForest &mdash; Human-in-the-Loop Multi-Agent Debate 투자 의사결정 시스템</footer>
     </div>
 
     <script>
-        const ASSET_TYPES = [
-            ['stock_kr', 'Stock (KR)'],
-            ['stock_us', 'Stock (US)'],
-            ['etf', 'ETF'],
-            ['bond', 'Bond'],
-            ['fund', 'Fund'],
-            ['crypto', 'Crypto'],
-            ['real_estate', 'Real Estate'],
-            ['commodity', 'Commodity'],
-            ['cash', 'Cash'],
-        ];
+        const DECISION_LABELS = { buy: 'BUY', wait: 'WAIT', pass: 'PASS', needs_more_data: 'HOLD' };
+        const AGENT_CLASSES = { '펀더멘털 애널리스트': 'fundamental', '밸류에이션 애널리스트': 'valuation', '리스크 애널리스트': 'risk' };
+        const ROUND_LABELS = { opening: '1R: 독립 분석', cross_examination: '2R: 상호 반론', final: '3R: 최종 입장' };
 
-        const VERDICT_LABELS = {
-            strong_hold: 'BUY',
-            hold: 'WAIT',
-            rebalance: '리밸런싱',
-            reduce: '비중 축소',
-            exit: 'PASS',
-            needs_more_data: '판단 보류',
-        };
+        let sessionId = null;
+        let currentPhase = null;
+        let allRounds = [];
 
-        const DECISION_LABELS = {
-            buy: 'BUY',
-            wait: 'WAIT',
-            pass: 'PASS',
-            needs_more_data: 'HOLD',
-        };
+        function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+        function scoreColor(s) { return s >= 0.7 ? 'var(--green)' : s >= 0.5 ? 'var(--yellow)' : 'var(--red)'; }
 
-        const AGENT_CLASSES = {
-            '펀더멘털 애널리스트': 'fundamental',
-            '밸류에이션 애널리스트': 'valuation',
-            '리스크 애널리스트': 'risk',
-        };
-
-        let holdingCount = 0;
-
-        function addHolding(data = {}) {
-            const id = holdingCount++;
-            const tbody = document.getElementById('holdingsBody');
-            const tr = document.createElement('tr');
-            tr.id = `holding-${id}`;
-            const typeOptions = ASSET_TYPES.map(([v, l]) =>
-                `<option value="${v}" ${data.asset_class === v ? 'selected' : ''}>${l}</option>`
-            ).join('');
-            tr.innerHTML = `
-                <td><input type="text" data-field="ticker" value="${data.ticker || ''}"></td>
-                <td><input type="text" data-field="name" value="${data.name || ''}"></td>
-                <td><select data-field="asset_class">${typeOptions}</select></td>
-                <td><input type="number" data-field="quantity" value="${data.quantity || ''}" min="0" step="any"></td>
-                <td><input type="number" data-field="avg_price" value="${data.avg_price || ''}" min="0" step="any"></td>
-                <td><input type="number" data-field="current_price" value="${data.current_price || ''}" min="0" step="any"></td>
-                <td><input type="text" data-field="sector" value="${data.sector || ''}"></td>
-                <td><button class="btn-danger" onclick="removeHolding(${id})">X</button></td>
-            `;
-            tbody.appendChild(tr);
+        function loadExampleHolding() {
+            document.getElementById('hTicker').value = '005930';
+            document.getElementById('hName').value = '삼성전자';
+            document.getElementById('hType').value = 'stock_kr';
+            document.getElementById('hQty').value = '100';
+            document.getElementById('hAvgPrice').value = '72000';
+            document.getElementById('hCurPrice').value = '68000';
+            document.getElementById('hSector').value = '반도체';
+            document.getElementById('hMemo').value = 'AI 반도체 수요 증가 기대';
         }
 
-        function removeHolding(id) {
-            document.getElementById(`holding-${id}`)?.remove();
-        }
-
-        function loadExample() {
-            document.getElementById('holdingsBody').innerHTML = '';
-            holdingCount = 0;
-            document.getElementById('portfolioName').value = '예시 포트폴리오';
-            document.getElementById('investmentGoal').value = '장기 성장 + 배당 수익';
-            document.getElementById('riskTolerance').value = 'moderate';
-            document.getElementById('investmentHorizon').value = '5년+';
-
-            const examples = [
-                { ticker: '005930', name: '삼성전자', asset_class: 'stock_kr', quantity: 100, avg_price: 72000, current_price: 68000, sector: '반도체' },
-                { ticker: 'AAPL', name: 'Apple Inc.', asset_class: 'stock_us', quantity: 10, avg_price: 180, current_price: 210, sector: '테크' },
-                { ticker: 'SCHD', name: 'Schwab US Dividend Equity ETF', asset_class: 'etf', quantity: 50, avg_price: 75, current_price: 82, sector: '배당 ETF' },
-                { ticker: '373220', name: 'LG에너지솔루션', asset_class: 'stock_kr', quantity: 5, avg_price: 550000, current_price: 380000, sector: '2차전지' },
-            ];
-            examples.forEach(e => addHolding(e));
-        }
-
-        function collectPortfolio() {
-            const rows = document.querySelectorAll('#holdingsBody tr');
-            const holdings = [];
-            for (const row of rows) {
-                const get = (field) => row.querySelector(`[data-field="${field}"]`)?.value || '';
-                const h = {
-                    ticker: get('ticker'),
-                    name: get('name'),
-                    asset_class: get('asset_class'),
-                    quantity: parseFloat(get('quantity')) || 0,
-                    avg_price: parseFloat(get('avg_price')) || 0,
-                    current_price: parseFloat(get('current_price')) || 0,
-                    sector: get('sector') || null,
-                };
-                if (h.ticker && h.quantity > 0) holdings.push(h);
-            }
+        function collectHolding() {
             return {
-                name: document.getElementById('portfolioName').value,
-                investment_goal: document.getElementById('investmentGoal').value || null,
-                risk_tolerance: document.getElementById('riskTolerance').value,
-                investment_horizon: document.getElementById('investmentHorizon').value || null,
-                holdings,
+                ticker: document.getElementById('hTicker').value,
+                name: document.getElementById('hName').value,
+                asset_class: document.getElementById('hType').value,
+                quantity: parseFloat(document.getElementById('hQty').value) || 0,
+                avg_price: parseFloat(document.getElementById('hAvgPrice').value) || 0,
+                current_price: parseFloat(document.getElementById('hCurPrice').value) || 0,
+                sector: document.getElementById('hSector').value || null,
+                memo: document.getElementById('hMemo').value || null,
             };
         }
 
-        async function startAnalysis() {
-            const portfolio = collectPortfolio();
-            if (portfolio.holdings.length === 0) {
-                alert('종목을 최소 1개 이상 추가하세요.');
-                return;
-            }
+        function setPhase(phase) {
+            const phases = ['phase1','phaseFb1','phase2','phaseFb2','phase3','phaseFb3','phaseFinal'];
+            const phaseMap = {
+                round1_running: 0, round1_done: 1,
+                round2_running: 2, round2_done: 3,
+                round3_running: 4, round3_done: 5,
+                synthesized: 6,
+            };
+            const idx = phaseMap[phase] ?? -1;
+            phases.forEach((p, i) => {
+                const el = document.getElementById(p);
+                el.className = 'phase-step' + (i < idx ? ' done' : i === idx ? ' active' : '');
+            });
+        }
 
-            const apiKey = document.getElementById('apiKey').value;
-            const model = document.getElementById('model').value;
-            const mode = document.getElementById('analysisMode').value;
-            const debateOnly = mode === 'debate';
-
-            const btn = document.getElementById('analyzeBtn');
-            btn.disabled = true;
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('results').style.display = 'none';
-
-            try {
-                const startRes = await fetch('/api/analyze', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        portfolio,
-                        api_key: apiKey || null,
-                        model,
-                        debate_only: debateOnly,
-                    }),
-                });
-
-                if (!startRes.ok) {
-                    const err = await startRes.json();
-                    throw new Error(err.detail || 'Analysis failed to start');
-                }
-
-                const { job_id } = await startRes.json();
-
-                let result = null;
-                while (true) {
-                    await new Promise(r => setTimeout(r, 3000));
-                    const statusRes = await fetch(`/api/jobs/${job_id}`);
-                    const job = await statusRes.json();
-
-                    if (job.status === 'completed') {
-                        result = job.result;
-                        break;
-                    } else if (job.status === 'failed') {
-                        throw new Error(job.error || 'Analysis failed');
-                    }
-                }
-
-                renderResults(result);
-            } catch (e) {
-                document.getElementById('results').style.display = 'block';
-                document.getElementById('results').innerHTML = `
-                    <div class="error-msg">Error: ${e.message}</div>
+        function renderRound(round) {
+            const label = ROUND_LABELS[round.round_type] || `Round ${round.round_number}`;
+            let html = `<div class="card"><h2>${label}</h2>`;
+            for (const msg of round.messages || []) {
+                const agentClass = AGENT_CLASSES[msg.agent_name] || '';
+                const stanceLabel = DECISION_LABELS[msg.stance] || msg.stance;
+                html += `
+                    <div class="agent-message ${agentClass}">
+                        <div class="agent-header">
+                            <span class="agent-name">${escapeHtml(msg.agent_name)}</span>
+                            <span>
+                                <span class="agent-stance stance-${msg.stance}">${stanceLabel}</span>
+                                <span style="font-size:0.75rem;color:var(--text-dim);margin-left:0.5rem;">${(msg.confidence*100).toFixed(0)}%</span>
+                            </span>
+                        </div>
+                        <div class="agent-content">${escapeHtml(msg.content)}</div>
                 `;
-            } finally {
-                btn.disabled = false;
-                document.getElementById('loading').style.display = 'none';
-            }
-        }
-
-        function scoreColor(score) {
-            if (score >= 0.7) return 'var(--green)';
-            if (score >= 0.5) return 'var(--yellow)';
-            return 'var(--red)';
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function renderDebate(debate) {
-            if (!debate) return '';
-
-            const roundLabels = {
-                opening: '1R: 독립 분석',
-                cross_examination: '2R: 상호 반론',
-                final: '3R: 최종 입장',
-            };
-
-            let html = '<div class="debate-card">';
-
-            // Rounds
-            for (const round of debate.rounds || []) {
-                const label = roundLabels[round.round_type] || `Round ${round.round_number}`;
-                html += `<div class="debate-round-header">${label}</div>`;
-
-                for (const msg of round.messages || []) {
-                    const agentClass = AGENT_CLASSES[msg.agent_name] || '';
-                    const stanceLabel = DECISION_LABELS[msg.stance] || msg.stance;
-                    const stanceClass = `stance-${msg.stance}`;
-
-                    html += `
-                        <div class="agent-message ${agentClass}">
-                            <div class="agent-header">
-                                <span class="agent-name">${escapeHtml(msg.agent_name)}</span>
-                                <span>
-                                    <span class="agent-stance ${stanceClass}">${stanceLabel}</span>
-                                    <span style="font-size:0.75rem;color:var(--text-dim);margin-left:0.5rem;">
-                                        ${(msg.confidence * 100).toFixed(0)}%
-                                    </span>
-                                </span>
-                            </div>
-                            <div class="agent-content">${escapeHtml(msg.content).substring(0, 500)}${msg.content.length > 500 ? '...' : ''}</div>
-                    `;
-
-                    if (msg.agreements?.length) {
-                        html += `<div style="margin-top:0.5rem;font-size:0.8rem;color:var(--green);">`;
-                        html += msg.agreements.slice(0, 3).map(a => `+ ${escapeHtml(a)}`).join('<br>');
-                        html += `</div>`;
-                    }
-                    if (msg.disagreements?.length) {
-                        html += `<div style="margin-top:0.3rem;font-size:0.8rem;color:var(--orange);">`;
-                        html += msg.disagreements.slice(0, 3).map(d => `- ${escapeHtml(d)}`).join('<br>');
-                        html += `</div>`;
-                    }
-
-                    html += `</div>`;
+                if (msg.agreements?.length) {
+                    html += `<div style="margin-top:0.5rem;font-size:0.8rem;color:var(--green);">${msg.agreements.slice(0,3).map(a=>'+ '+escapeHtml(a)).join('<br>')}</div>`;
                 }
-            }
-
-            // Final decision
-            const decisionClass = `decision-${debate.final_decision}`;
-            const decisionLabel = DECISION_LABELS[debate.final_decision] || debate.final_decision;
-            html += `
-                <div class="final-verdict ${decisionClass}" style="margin-top:1rem;">
-                    <h3>투자위원회 판정: ${decisionLabel}</h3>
-                    <div class="score-bar" style="max-width:200px;margin:0.5rem auto;">
-                        <div class="score-fill" style="width:${(debate.final_confidence || 0) * 100}%;background:${scoreColor(debate.final_confidence || 0)}"></div>
-                    </div>
-                    <span style="font-size:0.85rem;">확신도: ${((debate.final_confidence || 0) * 100).toFixed(0)}%</span>
-                    <p style="margin-top:0.8rem;font-size:0.9rem;text-align:left;">${escapeHtml(debate.final_reasoning || '')}</p>
-                </div>
-            `;
-
-            // Consensus / Dissent
-            if (debate.consensus_points?.length) {
-                html += `<div style="margin-top:0.8rem;"><strong style="color:var(--green);">합의 포인트:</strong>`;
-                for (const pt of debate.consensus_points) {
-                    html += `<div class="consensus-point">${escapeHtml(pt)}</div>`;
+                if (msg.disagreements?.length) {
+                    html += `<div style="margin-top:0.3rem;font-size:0.8rem;color:var(--orange);">${msg.disagreements.slice(0,3).map(d=>'- '+escapeHtml(d)).join('<br>')}</div>`;
                 }
                 html += `</div>`;
             }
-            if (debate.dissent_points?.length) {
-                html += `<div style="margin-top:0.5rem;"><strong style="color:var(--yellow);">의견 불일치:</strong>`;
-                for (const pt of debate.dissent_points) {
-                    html += `<div class="consensus-point dissent-point">${escapeHtml(pt)}</div>`;
-                }
-                html += `</div>`;
-            }
-
-            // Price & Risk
-            if (debate.price_assessment) {
-                html += `<p style="margin-top:0.5rem;font-size:0.85rem;"><strong>적정가 평가:</strong> ${escapeHtml(debate.price_assessment)}</p>`;
-            }
-            if (debate.risk_summary) {
-                html += `<p style="font-size:0.85rem;"><strong>핵심 리스크:</strong> ${escapeHtml(debate.risk_summary)}</p>`;
-            }
-
-            // Action items
-            if (debate.action_items?.length) {
-                html += `<div style="margin-top:0.5rem;"><strong>행동 제안:</strong><ul class="plan-list">`;
-                for (const item of debate.action_items) {
-                    html += `<li>${escapeHtml(item)}</li>`;
-                }
-                html += `</ul></div>`;
-            }
-
             html += `</div>`;
             return html;
         }
 
-        function renderResults(r) {
-            const el = document.getElementById('results');
-            el.style.display = 'block';
-
-            let html = '';
-
-            // Summary
-            html += `
-                <div class="card">
-                    <h2>Portfolio Analysis Summary</h2>
-                    <p style="margin-bottom:1rem;">${escapeHtml(r.summary)}</p>
-                    <label>Analysis Integrity Score</label>
-                    <div class="score-bar">
-                        <div class="score-fill" style="width:${r.frame_integrity_score * 100}%;background:${scoreColor(r.frame_integrity_score)}"></div>
+        function showFeedbackForm(nextAction, roundName) {
+            const html = `
+                <div class="feedback-box">
+                    <h3>${roundName} 완료 — 피드백을 입력하세요</h3>
+                    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:1rem;">
+                        의견을 입력하면 다음 라운드에 반영됩니다. 빈칸으로 두면 피드백 없이 진행합니다.
+                    </p>
+                    <textarea id="fbContent" placeholder="예: 밸류에이션 쪽 논점이 약하다, 최근 실적을 더 고려해..."></textarea>
+                    <div class="feedback-row">
+                        <div class="form-group">
+                            <label>집중할 포인트 (쉼표 구분)</label>
+                            <input type="text" id="fbFocus" placeholder="예: 밸류에이션, 경쟁사 비교">
+                        </div>
+                        <div class="form-group">
+                            <label>선호 방향 (선택)</label>
+                            <select id="fbStance">
+                                <option value="">없음</option>
+                                <option value="buy">BUY 쪽으로</option>
+                                <option value="wait">WAIT 쪽으로</option>
+                                <option value="pass">PASS 쪽으로</option>
+                            </select>
+                        </div>
                     </div>
-                    <span style="font-size:0.85rem;color:${scoreColor(r.frame_integrity_score)}">${(r.frame_integrity_score * 100).toFixed(0)}%</span>
+                    <div class="form-group" style="margin-bottom:1rem;">
+                        <label>추가 정보 (선택)</label>
+                        <input type="text" id="fbContext" placeholder="예: 최근 분기 매출이 전년 대비 20% 증가했다">
+                    </div>
+                    <div class="btn-row" style="justify-content:center;">
+                        <button class="btn-yellow" onclick="${nextAction}(true)">피드백 반영하고 진행</button>
+                        <button class="btn-secondary" onclick="${nextAction}(false)">피드백 없이 진행</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('feedbackArea').innerHTML = html;
+            document.getElementById('feedbackArea').classList.remove('hidden');
+        }
+
+        function collectFeedback() {
+            const content = document.getElementById('fbContent')?.value?.trim() || '';
+            if (!content) return null;
+            const focus = document.getElementById('fbFocus')?.value || '';
+            const stance = document.getElementById('fbStance')?.value || '';
+            const context = document.getElementById('fbContext')?.value || '';
+            return {
+                content,
+                focus_on: focus ? focus.split(',').map(s=>s.trim()).filter(Boolean) : [],
+                additional_context: context,
+                override_stance: stance || null,
+            };
+        }
+
+        function showLoading(text) {
+            document.getElementById('loadingText').textContent = text;
+            document.getElementById('loading').classList.remove('hidden');
+        }
+        function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
+
+        async function startDebate() {
+            const holding = collectHolding();
+            if (!holding.ticker || holding.quantity <= 0) {
+                alert('종목 정보를 입력하세요.'); return;
+            }
+
+            const mode = document.getElementById('analysisMode').value;
+            if (mode === 'auto') {
+                await runAutoMode(holding);
+                return;
+            }
+
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('phaseArea').classList.remove('hidden');
+            document.getElementById('debateArea').innerHTML = '';
+            document.getElementById('debateArea').classList.remove('hidden');
+            document.getElementById('resultArea').classList.add('hidden');
+            allRounds = [];
+
+            const portfolio = { name: 'Analysis', holdings: [holding] };
+
+            showLoading('Round 1: 애널리스트들이 독립 분석 중...');
+            setPhase('round1_running');
+
+            try {
+                const res = await fetch('/api/debate/start', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        holding, portfolio,
+                        api_key: document.getElementById('apiKey').value || null,
+                        model: document.getElementById('model').value,
+                    }),
+                });
+                if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+
+                const data = await res.json();
+                sessionId = data.session_id;
+                allRounds = data.rounds || [];
+
+                hideLoading();
+                setPhase('round1_done');
+
+                if (allRounds.length > 0) {
+                    document.getElementById('debateArea').innerHTML += renderRound(allRounds[0]);
+                }
+
+                showFeedbackForm('proceedRound2', 'Round 1 (독립 분석)');
+
+            } catch (e) {
+                hideLoading();
+                document.getElementById('debateArea').innerHTML = `<div class="error-msg">${e.message}</div>`;
+                document.getElementById('startBtn').disabled = false;
+            }
+        }
+
+        async function proceedRound2(withFeedback) {
+            document.getElementById('feedbackArea').classList.add('hidden');
+            const feedback = withFeedback ? collectFeedback() : null;
+
+            showLoading('Round 2: 상호 반론 진행 중...');
+            setPhase('round2_running');
+
+            try {
+                const res = await fetch(`/api/debate/${sessionId}/round2`, {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(feedback || {}),
+                });
+                if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+
+                const data = await res.json();
+                allRounds = data.rounds || [];
+
+                hideLoading();
+                setPhase('round2_done');
+
+                if (allRounds.length > 1) {
+                    document.getElementById('debateArea').innerHTML += renderRound(allRounds[1]);
+                }
+
+                showFeedbackForm('proceedRound3', 'Round 2 (상호 반론)');
+
+            } catch (e) {
+                hideLoading();
+                document.getElementById('debateArea').innerHTML += `<div class="error-msg">${e.message}</div>`;
+            }
+        }
+
+        async function proceedRound3(withFeedback) {
+            document.getElementById('feedbackArea').classList.add('hidden');
+            const feedback = withFeedback ? collectFeedback() : null;
+
+            showLoading('Round 3: 최종 입장 정리 중...');
+            setPhase('round3_running');
+
+            try {
+                const res = await fetch(`/api/debate/${sessionId}/round3`, {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(feedback || {}),
+                });
+                if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+
+                const data = await res.json();
+                allRounds = data.rounds || [];
+
+                hideLoading();
+                setPhase('round3_done');
+
+                if (allRounds.length > 2) {
+                    document.getElementById('debateArea').innerHTML += renderRound(allRounds[2]);
+                }
+
+                showFeedbackForm('proceedSynthesize', 'Round 3 (최종 입장)');
+
+            } catch (e) {
+                hideLoading();
+                document.getElementById('debateArea').innerHTML += `<div class="error-msg">${e.message}</div>`;
+            }
+        }
+
+        async function proceedSynthesize(withFeedback) {
+            document.getElementById('feedbackArea').classList.add('hidden');
+            const feedback = withFeedback ? collectFeedback() : null;
+
+            showLoading('투자위원회 최종 판정 중...');
+
+            try {
+                const res = await fetch(`/api/debate/${sessionId}/synthesize`, {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(feedback || {}),
+                });
+                if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+
+                const data = await res.json();
+                hideLoading();
+                setPhase('synthesized');
+
+                if (data.result) {
+                    renderFinalResult(data.result);
+                }
+
+                document.getElementById('startBtn').disabled = false;
+
+            } catch (e) {
+                hideLoading();
+                document.getElementById('debateArea').innerHTML += `<div class="error-msg">${e.message}</div>`;
+                document.getElementById('startBtn').disabled = false;
+            }
+        }
+
+        function renderFinalResult(result) {
+            const el = document.getElementById('resultArea');
+            el.classList.remove('hidden');
+
+            const decisionLabel = DECISION_LABELS[result.final_decision] || result.final_decision;
+            let html = `
+                <div class="card final-verdict decision-${result.final_decision}">
+                    <h3>투자위원회 최종 판정: ${decisionLabel}</h3>
+                    <div class="score-bar" style="max-width:200px;margin:0.5rem auto;">
+                        <div class="score-fill" style="width:${(result.final_confidence||0)*100}%;background:${scoreColor(result.final_confidence||0)}"></div>
+                    </div>
+                    <span style="font-size:0.85rem;">확신도: ${((result.final_confidence||0)*100).toFixed(0)}%</span>
+                    <p style="margin-top:0.8rem;font-size:0.9rem;text-align:left;">${escapeHtml(result.final_reasoning||'')}</p>
                 </div>
             `;
 
-            // Per-holding
-            for (const ha of r.holding_analyses) {
-                const verdictLabel = VERDICT_LABELS[ha.overall_verdict] || ha.overall_verdict;
-                html += `<div class="card">
-                    <h2 class="collapsible-header" onclick="toggleCollapse(this)">
-                        ${escapeHtml(ha.name)} (${escapeHtml(ha.ticker)})
-                        <span class="verdict-badge verdict-${ha.overall_verdict}">${verdictLabel}</span>
-                    </h2>
-                    <div class="collapsible-body">
-                        <p style="margin-bottom:1rem;">${escapeHtml(ha.verdict_reasoning)}</p>
-                `;
-
-                // Debate result
-                if (ha.debate_result) {
-                    html += `<h3 style="margin:1rem 0 0.5rem;color:var(--magenta);font-size:1rem;">Multi-Agent Debate</h3>`;
-                    html += renderDebate(ha.debate_result);
-                }
-
-                // Action items
-                if (ha.action_items?.length) {
-                    html += `<p style="font-weight:600;margin:1rem 0 0.3rem;">Action Items:</p><ul class="plan-list">`;
-                    for (const item of ha.action_items) {
-                        html += `<li>${escapeHtml(item)}</li>`;
-                    }
-                    html += `</ul>`;
-                }
-
-                // Frame analyses
-                if (ha.frame_analyses?.length) {
-                    html += `<h3 style="margin:1rem 0 0.5rem;color:var(--accent-light);font-size:1rem;">Question Frame Analysis</h3>`;
-                    for (const fa of ha.frame_analyses) {
-                        html += `
-                            <div class="frame-card">
-                                <h4>${escapeHtml(fa.frame_name)}</h4>
-                                <div class="question">${escapeHtml(fa.question)}</div>
-                                <div class="reasoning">${escapeHtml(fa.reasoning).substring(0, 300)}${fa.reasoning.length > 300 ? '...' : ''}</div>
-                                <div style="margin:0.3rem 0;">
-                                    <strong>Conclusion:</strong> ${escapeHtml(fa.conclusion)}
-                                </div>
-                                <div class="score-bar" style="max-width:200px;">
-                                    <div class="score-fill" style="width:${fa.confidence * 100}%;background:${scoreColor(fa.confidence)}"></div>
-                                </div>
-                                <span style="font-size:0.75rem;color:${scoreColor(fa.confidence)}">
-                                    Confidence: ${(fa.confidence * 100).toFixed(0)}%
-                                </span>
-                            </div>
-                        `;
-                    }
-                }
-
-                html += `</div></div>`;
+            if (result.consensus_points?.length) {
+                html += `<div class="card"><h2>합의 포인트</h2>`;
+                for (const pt of result.consensus_points) html += `<div class="consensus-point">${escapeHtml(pt)}</div>`;
+                html += `</div>`;
             }
 
-            // Structural issues
-            if (r.structural_issues?.length) {
-                html += `<div class="card"><h2>Structural Issues</h2><ul class="issue-list">`;
-                for (const issue of r.structural_issues) {
-                    html += `<li>${escapeHtml(issue)}</li>`;
-                }
+            if (result.dissent_points?.length) {
+                html += `<div class="card"><h2>의견 불일치</h2>`;
+                for (const pt of result.dissent_points) html += `<div class="consensus-point dissent-point">${escapeHtml(pt)}</div>`;
+                html += `</div>`;
+            }
+
+            if (result.price_assessment || result.risk_summary) {
+                html += `<div class="card">`;
+                if (result.price_assessment) html += `<p><strong>적정가 평가:</strong> ${escapeHtml(result.price_assessment)}</p>`;
+                if (result.risk_summary) html += `<p style="margin-top:0.5rem;"><strong>핵심 리스크:</strong> ${escapeHtml(result.risk_summary)}</p>`;
+                html += `</div>`;
+            }
+
+            if (result.action_items?.length) {
+                html += `<div class="card"><h2>Action Items</h2><ul style="list-style:none;padding:0;">`;
+                for (const item of result.action_items) html += `<li style="padding:0.3rem 0;font-size:0.9rem;border-bottom:1px solid var(--border);">&gt; ${escapeHtml(item)}</li>`;
                 html += `</ul></div>`;
             }
 
-            // Improvement plan
-            if (r.improvement_plan?.length) {
-                html += `<div class="card"><h2>Improvement Plan</h2><ul class="plan-list">`;
-                for (const plan of r.improvement_plan) {
-                    html += `<li>${escapeHtml(plan)}</li>`;
-                }
-                html += `</ul></div>`;
-            }
-
-            // Risk assessment
-            if (r.risk_assessment) {
-                html += `<div class="card"><h2>Risk Assessment</h2><p>${escapeHtml(r.risk_assessment)}</p></div>`;
+            if (result.user_feedbacks?.length) {
+                html += `<p style="text-align:center;color:var(--text-dim);font-size:0.8rem;margin-top:1rem;">반영된 사용자 피드백: ${result.user_feedbacks.length}건</p>`;
             }
 
             el.innerHTML = html;
         }
 
-        function toggleCollapse(header) {
-            header.classList.toggle('open');
-            const body = header.nextElementSibling;
-            body.classList.toggle('open');
-        }
+        async function runAutoMode(holding) {
+            const portfolio = { name: 'Analysis', holdings: [holding] };
+            document.getElementById('startBtn').disabled = true;
+            showLoading('자동 분석 진행 중...');
 
-        // Start with one empty row
-        addHolding();
+            try {
+                const res = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        portfolio,
+                        api_key: document.getElementById('apiKey').value || null,
+                        model: document.getElementById('model').value,
+                        debate_only: true,
+                    }),
+                });
+                if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+                const { job_id } = await res.json();
+
+                while (true) {
+                    await new Promise(r => setTimeout(r, 3000));
+                    const sr = await fetch(`/api/jobs/${job_id}`);
+                    const job = await sr.json();
+                    if (job.status === 'completed') {
+                        hideLoading();
+                        if (job.result?.holding_analyses?.[0]?.debate_result) {
+                            renderFinalResult(job.result.holding_analyses[0].debate_result);
+                            document.getElementById('resultArea').classList.remove('hidden');
+                        }
+                        break;
+                    } else if (job.status === 'failed') {
+                        throw new Error(job.error);
+                    }
+                }
+            } catch (e) {
+                hideLoading();
+                document.getElementById('resultArea').classList.remove('hidden');
+                document.getElementById('resultArea').innerHTML = `<div class="error-msg">${e.message}</div>`;
+            } finally {
+                document.getElementById('startBtn').disabled = false;
+            }
+        }
     </script>
 </body>
 </html>

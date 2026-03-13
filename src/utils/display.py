@@ -49,6 +49,79 @@ DECISION_LABELS = {
 }
 
 
+def display_round(rnd: "DebateRound") -> None:
+    """단일 토론 라운드를 터미널에 출력."""
+    from src.models.analysis import DebateRound
+
+    round_labels = {
+        "opening": "1R: 독립 분석",
+        "cross_examination": "2R: 상호 반론",
+        "final": "3R: 최종 입장",
+    }
+
+    label = round_labels.get(rnd.round_type, f"Round {rnd.round_number}")
+    console.print(f"\n[bold cyan]{'='*50}[/]")
+    console.print(f"[bold cyan]{label}[/]")
+    console.print(f"[bold cyan]{'='*50}[/]")
+
+    for msg in rnd.messages:
+        stance_style = DECISION_COLORS.get(msg.stance, "dim")
+        stance_label = DECISION_LABELS.get(msg.stance, "?")
+
+        console.print(
+            f"\n  [bold]{msg.agent_name}[/] → "
+            f"[{stance_style}]{stance_label}[/] "
+            f"(확신도: {msg.confidence:.0%})"
+        )
+        for line in msg.content.split("\n"):
+            if line.strip():
+                console.print(f"    {line.strip()}")
+
+        if msg.agreements:
+            console.print(f"    [green]핵심:[/] {', '.join(msg.agreements[:3])}")
+        if msg.disagreements:
+            console.print(f"    [red]반론:[/] {', '.join(msg.disagreements[:3])}")
+
+
+def display_final_verdict(debate: DebateResult) -> None:
+    """최종 판정만 출력 (토론 후)."""
+    console.print()
+    decision_style = DECISION_COLORS.get(debate.final_decision, "dim")
+    decision_label = DECISION_LABELS.get(debate.final_decision, "?")
+
+    console.print(Panel(
+        f"[bold]{debate.target_company}[/] ({debate.target_ticker})\n\n"
+        f"판정: [{decision_style}][bold]{decision_label}[/bold][/] "
+        f"(확신도: {debate.final_confidence:.0%})\n\n"
+        f"{debate.final_reasoning}",
+        title="투자위원회 최종 판정",
+        border_style=decision_style.replace("bold ", ""),
+    ))
+
+    if debate.consensus_points:
+        console.print("\n[bold green]합의 포인트:[/]")
+        for pt in debate.consensus_points:
+            console.print(f"  + {pt}")
+
+    if debate.dissent_points:
+        console.print("\n[bold yellow]의견 불일치:[/]")
+        for pt in debate.dissent_points:
+            console.print(f"  ? {pt}")
+
+    if debate.price_assessment:
+        console.print(f"\n[bold]적정가 평가:[/] {debate.price_assessment}")
+    if debate.risk_summary:
+        console.print(f"[bold]핵심 리스크:[/] {debate.risk_summary}")
+
+    if debate.action_items:
+        console.print("\n[bold]행동 제안:[/]")
+        for i, item in enumerate(debate.action_items, 1):
+            console.print(f"  {i}. {item}")
+
+    if debate.user_feedbacks:
+        console.print(f"\n[dim]반영된 사용자 피드백: {len(debate.user_feedbacks)}건[/]")
+
+
 def display_debate(debate: DebateResult) -> None:
     """토론 결과를 터미널에 출력."""
     console.print()

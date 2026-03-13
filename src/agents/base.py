@@ -15,6 +15,7 @@ from src.models.analysis import (
     AgentOpinion,
     DebateMessage,
     InvestmentDecision,
+    UserFeedback,
 )
 
 if TYPE_CHECKING:
@@ -70,20 +71,44 @@ class BaseAnalystAgent(ABC):
         portfolio: Portfolio,
         other_opinions: list[AgentOpinion],
         round_number: int,
+        user_feedback: UserFeedback | None = None,
     ) -> DebateMessage:
-        """다른 에이전트의 의견을 읽고 반론/동의."""
+        """다른 에이전트의 의견을 읽고 반론/동의. 사용자 피드백 반영."""
         opinions_text = self._format_other_opinions(other_opinions)
+
+        # 사용자 피드백 섹션
+        feedback_section = ""
+        if user_feedback:
+            feedback_section = (
+                f"\n## 투자자 피드백 (반드시 반영하세요)\n"
+                f"- 의견: {user_feedback.content}\n"
+            )
+            if user_feedback.focus_on:
+                feedback_section += f"- 집중 요청 사항: {', '.join(user_feedback.focus_on)}\n"
+            if user_feedback.additional_context:
+                feedback_section += f"- 추가 정보: {user_feedback.additional_context}\n"
+            if user_feedback.override_stance:
+                feedback_section += (
+                    f"- 투자자 선호 방향: {user_feedback.override_stance.upper()} "
+                    f"(이 방향을 고려하되, 논리적 근거 없이 맹목적으로 따르지는 마세요)\n"
+                )
+
         prompt = (
             f"당신은 '{self.name}' ({self.role})입니다.\n\n"
             f"## 분석 대상\n"
             f"종목: {holding.name} ({holding.ticker})\n\n"
-            f"## 다른 애널리스트들의 의견\n{opinions_text}\n\n"
+            f"## 다른 애널리스트들의 의견\n{opinions_text}\n"
+            f"{feedback_section}\n"
             f"## 지시사항\n"
             f"위 의견들을 읽고 반론 또는 동의를 표명하세요.\n"
             f"- 동의하는 포인트와 그 이유\n"
             f"- 반대하는 포인트와 그 근거\n"
-            f"- 당신의 수정된 입장 (변경 또는 유지)\n\n"
-            f"반드시 다음 JSON으로 응답:\n"
+            f"- 당신의 수정된 입장 (변경 또는 유지)\n"
+        )
+        if user_feedback:
+            prompt += f"- 투자자 피드백에 대한 당신의 의견\n"
+        prompt += (
+            f"\n반드시 다음 JSON으로 응답:\n"
             f'{{\n'
             f'  "stance": "buy" | "wait" | "pass" | "needs_more_data",\n'
             f'  "confidence": 0.0~1.0,\n'
@@ -115,19 +140,40 @@ class BaseAnalystAgent(ABC):
         holding: Holding,
         portfolio: Portfolio,
         debate_history: str,
+        user_feedback: UserFeedback | None = None,
     ) -> DebateMessage:
-        """토론을 종합하고 최종 입장 정리."""
+        """토론을 종합하고 최종 입장 정리. 사용자 피드백 반영."""
+        feedback_section = ""
+        if user_feedback:
+            feedback_section = (
+                f"\n## 투자자 피드백 (반드시 반영하세요)\n"
+                f"- 의견: {user_feedback.content}\n"
+            )
+            if user_feedback.focus_on:
+                feedback_section += f"- 집중 요청 사항: {', '.join(user_feedback.focus_on)}\n"
+            if user_feedback.additional_context:
+                feedback_section += f"- 추가 정보: {user_feedback.additional_context}\n"
+            if user_feedback.override_stance:
+                feedback_section += (
+                    f"- 투자자 선호 방향: {user_feedback.override_stance.upper()}\n"
+                )
+
         prompt = (
             f"당신은 '{self.name}' ({self.role})입니다.\n\n"
             f"## 분석 대상\n"
             f"종목: {holding.name} ({holding.ticker})\n\n"
-            f"## 토론 경과\n{debate_history}\n\n"
+            f"## 토론 경과\n{debate_history}\n"
+            f"{feedback_section}\n"
             f"## 지시사항\n"
             f"토론 전체를 종합하여 최종 입장을 정리하세요.\n"
             f"- 토론을 통해 변경된 점이 있다면 명시\n"
             f"- 최종 투자 판단과 확신도\n"
-            f"- 핵심 근거 3가지\n\n"
-            f"반드시 다음 JSON으로 응답:\n"
+            f"- 핵심 근거 3가지\n"
+        )
+        if user_feedback:
+            prompt += f"- 투자자 피드백을 어떻게 반영했는지 명시\n"
+        prompt += (
+            f"\n반드시 다음 JSON으로 응답:\n"
             f'{{\n'
             f'  "stance": "buy" | "wait" | "pass" | "needs_more_data",\n'
             f'  "confidence": 0.0~1.0,\n'

@@ -45,6 +45,32 @@ class DebateRound(BaseModel):
     messages: list[DebateMessage] = Field(default_factory=list)
 
 
+class UserFeedback(BaseModel):
+    """사용자 피드백 — 라운드 사이에 개입."""
+    content: str = Field(description="사용자 코멘트/지시사항")
+    focus_on: list[str] = Field(
+        default_factory=list,
+        description="다음 라운드에서 집중해야 할 포인트",
+    )
+    additional_context: str = Field(
+        default="",
+        description="추가 정보나 데이터 (예: '최근 실적 발표에서 매출 20% 증가')",
+    )
+    override_stance: str | None = Field(
+        default=None,
+        description="사용자가 강제하고 싶은 방향 (예: 'buy', 'wait', 'pass')",
+    )
+
+
+class DebatePhase(str, Enum):
+    """토론 진행 단계."""
+    WAITING_START = "waiting_start"
+    ROUND1_DONE = "round1_done"           # R1 완료 → 사용자 피드백 대기
+    ROUND2_DONE = "round2_done"           # R2 완료 → 사용자 피드백 대기
+    ROUND3_DONE = "round3_done"           # R3 완료 → 사용자 최종 확인 대기
+    SYNTHESIZED = "synthesized"           # 최종 판정 완료
+
+
 class DebateResult(BaseModel):
     """토론 전체 결과."""
     target_company: str = Field(description="분석 대상 기업명")
@@ -70,6 +96,14 @@ class DebateResult(BaseModel):
     )
     risk_summary: str = Field(default="", description="핵심 리스크 요약")
     price_assessment: str = Field(default="", description="적정가 평가")
+    user_feedbacks: list[UserFeedback] = Field(
+        default_factory=list,
+        description="사용자가 라운드 사이에 제공한 피드백 기록",
+    )
+    phase: DebatePhase = Field(
+        default=DebatePhase.WAITING_START,
+        description="현재 토론 진행 단계",
+    )
 
 
 # ── 기존 포트폴리오 분석과의 호환을 위한 모델 ──
