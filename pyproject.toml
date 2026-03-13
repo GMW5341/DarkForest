@@ -1,0 +1,19 @@
+[project]
+name = "dark-forest"
+version = "0.1.0"
+description = "Investment portfolio analyzer with Question Frame reasoning engine"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.42.0",
+    "pydantic>=2.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+]
+
+[project.scripts]
+darkforest = "src.cli:main"

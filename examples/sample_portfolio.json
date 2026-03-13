@@ -1,0 +1,52 @@
+{
+    "name": "My Portfolio",
+    "investment_goal": "장기 성장 + 배당 수익",
+    "risk_tolerance": "moderate",
+    "investment_horizon": "5년+",
+    "holdings": [
+        {
+            "ticker": "005930",
+            "name": "삼성전자",
+            "asset_class": "stock_kr",
+            "quantity": 100,
+            "avg_price": 72000,
+            "current_price": 68000,
+            "currency": "KRW",
+            "sector": "반도체",
+            "memo": "AI 반도체 수요 증가 기대"
+        },
+        {
+            "ticker": "AAPL",
+            "name": "Apple Inc.",
+            "asset_class": "stock_us",
+            "quantity": 10,
+            "avg_price": 180,
+            "current_price": 210,
+            "currency": "USD",
+            "sector": "테크",
+            "memo": "생태계 락인 효과, 서비스 매출 성장"
+        },
+        {
+            "ticker": "SCHD",
+            "name": "Schwab US Dividend Equity ETF",
+            "asset_class": "etf",
+            "quantity": 50,
+            "avg_price": 75,
+            "current_price": 82,
+            "currency": "USD",
+            "sector": "배당 ETF",
+            "memo": "배당 성장 + 안정적 수익"
+        },
+        {
+            "ticker": "373220",
+            "name": "LG에너지솔루션",
+            "asset_class": "stock_kr",
+            "quantity": 5,
+            "avg_price": 550000,
+            "current_price": 380000,
+            "currency": "KRW",
+            "sector": "2차전지",
+            "memo": "EV 시장 성장에 베팅"
+        }
+    ]
+}
