@@ -29,6 +29,21 @@ class Holding(BaseModel):
     currency: str = Field(default="KRW", description="통화 (KRW, USD 등)")
     sector: str | None = Field(default=None, description="섹터/업종")
     memo: str | None = Field(default=None, description="매수 근거 메모")
+    financial_data: str = Field(
+        default="",
+        description=(
+            "재무 데이터 (자유 형식). "
+            "예: 매출, 영업이익, PER, PBR, ROE, 부채비율 등 "
+            "텍스트로 붙여넣기"
+        ),
+    )
+    reports: list[str] = Field(
+        default_factory=list,
+        description=(
+            "애널리스트 리포트 또는 참고 자료 (텍스트). "
+            "증권사 리포트, 뉴스, IR 자료 등을 텍스트로 붙여넣기"
+        ),
+    )
 
     @property
     def market_value(self) -> float:

@@ -156,10 +156,7 @@ class DebateStartRequest(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
-    content: str = Field(default="", description="사용자 코멘트")
-    focus_on: list[str] = Field(default_factory=list)
-    additional_context: str = Field(default="")
-    override_stance: str | None = Field(default=None)
+    message: str = Field(default="", description="자연어 피드백 (대화하듯이 입력)")
 
 
 class DebateSessionResponse(BaseModel):
@@ -221,13 +218,8 @@ async def debate_round2(session_id: str, feedback: FeedbackRequest | None = None
         raise HTTPException(status_code=400, detail=f"현재 단계: {session.phase.value}")
 
     user_fb = None
-    if feedback and feedback.content.strip():
-        user_fb = UserFeedback(
-            content=feedback.content,
-            focus_on=feedback.focus_on,
-            additional_context=feedback.additional_context,
-            override_stance=feedback.override_stance,
-        )
+    if feedback and feedback.message.strip():
+        user_fb = UserFeedback(content=feedback.message.strip())
         session.user_feedbacks.append(user_fb)
 
     try:
@@ -259,13 +251,8 @@ async def debate_round3(session_id: str, feedback: FeedbackRequest | None = None
         raise HTTPException(status_code=400, detail=f"현재 단계: {session.phase.value}")
 
     user_fb = None
-    if feedback and feedback.content.strip():
-        user_fb = UserFeedback(
-            content=feedback.content,
-            focus_on=feedback.focus_on,
-            additional_context=feedback.additional_context,
-            override_stance=feedback.override_stance,
-        )
+    if feedback and feedback.message.strip():
+        user_fb = UserFeedback(content=feedback.message.strip())
         session.user_feedbacks.append(user_fb)
 
     try:
@@ -297,15 +284,10 @@ async def debate_synthesize(session_id: str, feedback: FeedbackRequest | None = 
         raise HTTPException(status_code=400, detail=f"현재 단계: {session.phase.value}")
 
     final_comment = ""
-    if feedback and feedback.content.strip():
-        user_fb = UserFeedback(
-            content=feedback.content,
-            focus_on=feedback.focus_on,
-            additional_context=feedback.additional_context,
-            override_stance=feedback.override_stance,
-        )
+    if feedback and feedback.message.strip():
+        user_fb = UserFeedback(content=feedback.message.strip())
         session.user_feedbacks.append(user_fb)
-        final_comment = feedback.content
+        final_comment = feedback.message.strip()
 
     try:
         orchestrator = _get_orchestrator(session)

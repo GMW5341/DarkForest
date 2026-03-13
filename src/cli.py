@@ -1,13 +1,12 @@
 """
-CLI Entry Point — 인터랙티브 커맨드라인 인터페이스.
+CLI Entry Point — 대화형 커맨드라인 인터페이스.
 
-포트폴리오 JSON 파일을 입력받아 Multi-Agent Debate 기반 분석을 실행한다.
-각 라운드 사이에 사용자가 피드백을 제공하여 토론 방향을 조율할 수 있다.
+LLM과 대화하듯이 토론에 참여할 수 있는 인터랙티브 CLI.
 
 Usage:
-    darkforest portfolio.json                    # 인터랙티브 토론
-    darkforest portfolio.json --auto             # 자동 모드 (피드백 없이)
-    darkforest --example                         # 예시 포트폴리오
+    darkforest portfolio.json          # 인터랙티브 대화 모드
+    darkforest --example               # 예시 포트폴리오
+    darkforest --example --auto        # 자동 모드 (대화 없이)
 """
 
 from __future__ import annotations
@@ -20,15 +19,12 @@ from pathlib import Path
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Prompt
 
 from src.analyzer import PortfolioAnalyzer
 from src.agents.debate import DebateOrchestrator
 from src.models.analysis import (
-    AgentOpinion,
     DebatePhase,
     DebateResult,
-    DebateRound,
     InvestmentDecision,
     UserFeedback,
 )
@@ -36,6 +32,13 @@ from src.models.portfolio import AssetClass, Holding, Portfolio
 from src.utils.display import display_analysis, display_round, display_final_verdict
 
 console = Console()
+
+DECISION_STYLE = {
+    InvestmentDecision.BUY: ("BUY", "bold green"),
+    InvestmentDecision.WAIT: ("WAIT", "yellow"),
+    InvestmentDecision.PASS: ("PASS", "bold red"),
+    InvestmentDecision.NEEDS_MORE_DATA: ("HOLD", "dim"),
+}
 
 
 def _example_portfolio() -> Portfolio:
@@ -56,6 +59,15 @@ def _example_portfolio() -> Portfolio:
                 currency="KRW",
                 sector="반도체",
                 memo="AI 반도체 수요 증가 기대",
+                financial_data=(
+                    "2024 매출: 258조원 (+12% YoY)\n"
+                    "영업이익: 32조원\n"
+                    "PER: 12.5배 (5년 평균 14배)\n"
+                    "PBR: 1.2배\n"
+                    "ROE: 9.8%\n"
+                    "부채비율: 35%\n"
+                    "배당수익률: 2.1%"
+                ),
             ),
             Holding(
                 ticker="AAPL",
@@ -100,45 +112,14 @@ def _load_portfolio(path: str) -> Portfolio:
     return Portfolio(**data)
 
 
-def _collect_feedback(round_name: str) -> UserFeedback | None:
-    """사용자로부터 피드백을 수집."""
+def _chat_input(prompt_text: str = "you") -> str:
+    """사용자로부터 자연어 입력을 받는다."""
     console.print()
-    console.print(Panel(
-        f"[bold]{round_name}[/] 결과를 확인하셨습니다.\n"
-        f"피드백을 입력하면 다음 라운드에 반영됩니다.\n"
-        f"[dim]엔터만 누르면 피드백 없이 진행합니다.[/]",
-        border_style="yellow",
-    ))
-
-    content = Prompt.ask(
-        "\n[bold yellow]피드백[/] (의견/지시사항)",
-        default="",
-    )
-
-    if not content.strip():
-        return None
-
-    focus = Prompt.ask(
-        "[yellow]집중할 포인트[/] (쉼표로 구분, 선택)",
-        default="",
-    )
-
-    additional = Prompt.ask(
-        "[yellow]추가 정보[/] (추가 데이터/맥락, 선택)",
-        default="",
-    )
-
-    override = Prompt.ask(
-        "[yellow]선호 방향[/] (buy/wait/pass, 선택)",
-        default="",
-    )
-
-    return UserFeedback(
-        content=content.strip(),
-        focus_on=[f.strip() for f in focus.split(",") if f.strip()] if focus else [],
-        additional_context=additional.strip(),
-        override_stance=override.strip().lower() if override.strip() else None,
-    )
+    try:
+        user_input = console.input(f"[bold yellow]{prompt_text} >[/] ")
+    except (EOFError, KeyboardInterrupt):
+        return ""
+    return user_input.strip()
 
 
 async def _run_interactive(
@@ -146,63 +127,63 @@ async def _run_interactive(
     api_key: str | None,
     model: str,
 ) -> None:
-    """인터랙티브 모드: 라운드별 피드백 수집."""
+    """인터랙티브 대화 모드: LLM과 대화하듯이 토론에 참여."""
     analyzer = PortfolioAnalyzer(api_key=api_key, model=model)
     orchestrator = analyzer.engine.debate_orchestrator
 
     for holding in portfolio.holdings:
         console.print()
         console.print(Panel(
-            f"[bold]{holding.name}[/] ({holding.ticker}) 분석 시작",
-            title="종목 분석",
+            f"[bold]{holding.name}[/] ({holding.ticker}) 토론을 시작합니다.\n"
+            f"매 라운드 후 대화하듯이 의견을 입력하세요.\n"
+            f"[dim]엔터만 누르면 의견 없이 다음 라운드로 넘어갑니다.[/]",
+            title="Debate Session",
             border_style="magenta",
         ))
 
         user_feedbacks: list[UserFeedback] = []
 
-        # ── Round 1: 독립 분석 ──
-        console.print("\n[bold cyan]Round 1: 독립 분석 진행 중...[/]")
+        # ── Round 1 ──
+        console.print("\n[bold cyan]Round 1: 독립 분석 중...[/]")
         round1, opinions = await orchestrator.run_round1(holding, portfolio)
         display_round(round1)
 
-        fb1 = _collect_feedback("Round 1 (독립 분석)")
+        user_input = _chat_input()
+        fb1 = UserFeedback(content=user_input) if user_input else None
         if fb1:
             user_feedbacks.append(fb1)
 
-        # ── Round 2: 상호 반론 ──
-        console.print("\n[bold cyan]Round 2: 상호 반론 진행 중...[/]")
+        # ── Round 2 ──
+        console.print("\n[bold cyan]Round 2: 반론 진행 중...[/]")
         round2 = await orchestrator.run_round2(
-            holding, portfolio, opinions,
-            user_feedback=fb1,
+            holding, portfolio, opinions, user_feedback=fb1,
         )
         rounds = [round1, round2]
         display_round(round2)
 
-        fb2 = _collect_feedback("Round 2 (상호 반론)")
+        user_input = _chat_input()
+        fb2 = UserFeedback(content=user_input) if user_input else None
         if fb2:
             user_feedbacks.append(fb2)
 
-        # ── Round 3: 최종 입장 ──
+        # ── Round 3 ──
         console.print("\n[bold cyan]Round 3: 최종 입장 정리 중...[/]")
         round3 = await orchestrator.run_round3(
-            holding, portfolio, rounds,
-            user_feedback=fb2,
+            holding, portfolio, rounds, user_feedback=fb2,
         )
         rounds.append(round3)
         display_round(round3)
 
-        fb3 = _collect_feedback("Round 3 (최종 입장)")
+        user_input = _chat_input()
+        fb3 = UserFeedback(content=user_input) if user_input else None
         if fb3:
             user_feedbacks.append(fb3)
 
-        # ── Synthesis: 최종 판정 ──
-        final_comment = ""
-        if fb3:
-            final_comment = fb3.content
-
+        # ── Synthesis ──
         console.print("\n[bold cyan]투자위원회 최종 판정 중...[/]")
         synthesis = await orchestrator.synthesize(
-            holding, rounds, user_feedbacks, final_comment,
+            holding, rounds, user_feedbacks,
+            user_final_comment=fb3.content if fb3 else "",
         )
 
         result = DebateResult(
@@ -224,7 +205,6 @@ async def _run_interactive(
             user_feedbacks=user_feedbacks,
             phase=DebatePhase.SYNTHESIZED,
         )
-
         display_final_verdict(result)
 
 
@@ -234,7 +214,7 @@ async def _run_auto(
     model: str,
     debate_only: bool,
 ) -> None:
-    """자동 모드: 피드백 없이 실행."""
+    """자동 모드."""
     analyzer = PortfolioAnalyzer(api_key=api_key, model=model)
     if debate_only:
         result = await analyzer.debate(portfolio)
@@ -245,37 +225,14 @@ async def _run_auto(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="DarkForest — Multi-Agent Debate 투자 포트폴리오 분석기",
+        description="DarkForest — Multi-Agent Debate 투자 분석기",
     )
-    parser.add_argument(
-        "portfolio_file",
-        nargs="?",
-        help="포트폴리오 JSON 파일 경로",
-    )
-    parser.add_argument(
-        "--example",
-        action="store_true",
-        help="예시 포트폴리오로 분석 실행",
-    )
-    parser.add_argument(
-        "--auto",
-        action="store_true",
-        help="자동 모드 (라운드 간 피드백 없이 실행)",
-    )
-    parser.add_argument(
-        "--debate-only",
-        action="store_true",
-        help="토론만 실행 (Question Frame 분석 생략)",
-    )
-    parser.add_argument(
-        "--api-key",
-        help="Anthropic API 키 (미지정 시 ANTHROPIC_API_KEY 환경변수 사용)",
-    )
-    parser.add_argument(
-        "--model",
-        default="claude-sonnet-4-20250514",
-        help="사용할 Claude 모델 (기본: claude-sonnet-4-20250514)",
-    )
+    parser.add_argument("portfolio_file", nargs="?", help="포트폴리오 JSON 파일")
+    parser.add_argument("--example", action="store_true", help="예시 포트폴리오")
+    parser.add_argument("--auto", action="store_true", help="자동 모드 (대화 없이)")
+    parser.add_argument("--debate-only", action="store_true", help="토론만 (프레임 생략)")
+    parser.add_argument("--api-key", help="Anthropic API 키")
+    parser.add_argument("--model", default="claude-sonnet-4-20250514")
 
     args = parser.parse_args()
 

@@ -76,22 +76,12 @@ class BaseAnalystAgent(ABC):
         """다른 에이전트의 의견을 읽고 반론/동의. 사용자 피드백 반영."""
         opinions_text = self._format_other_opinions(other_opinions)
 
-        # 사용자 피드백 섹션
         feedback_section = ""
-        if user_feedback:
+        if user_feedback and user_feedback.content:
             feedback_section = (
-                f"\n## 투자자 피드백 (반드시 반영하세요)\n"
-                f"- 의견: {user_feedback.content}\n"
+                f"\n## 투자자가 직접 한 말 (반드시 반영하세요)\n"
+                f'"{user_feedback.content}"\n'
             )
-            if user_feedback.focus_on:
-                feedback_section += f"- 집중 요청 사항: {', '.join(user_feedback.focus_on)}\n"
-            if user_feedback.additional_context:
-                feedback_section += f"- 추가 정보: {user_feedback.additional_context}\n"
-            if user_feedback.override_stance:
-                feedback_section += (
-                    f"- 투자자 선호 방향: {user_feedback.override_stance.upper()} "
-                    f"(이 방향을 고려하되, 논리적 근거 없이 맹목적으로 따르지는 마세요)\n"
-                )
 
         prompt = (
             f"당신은 '{self.name}' ({self.role})입니다.\n\n"
@@ -105,8 +95,8 @@ class BaseAnalystAgent(ABC):
             f"- 반대하는 포인트와 그 근거\n"
             f"- 당신의 수정된 입장 (변경 또는 유지)\n"
         )
-        if user_feedback:
-            prompt += f"- 투자자 피드백에 대한 당신의 의견\n"
+        if user_feedback and user_feedback.content:
+            prompt += f"- 투자자 말에 대한 당신의 의견도 꼭 포함\n"
         prompt += (
             f"\n반드시 다음 JSON으로 응답:\n"
             f'{{\n'
@@ -144,19 +134,11 @@ class BaseAnalystAgent(ABC):
     ) -> DebateMessage:
         """토론을 종합하고 최종 입장 정리. 사용자 피드백 반영."""
         feedback_section = ""
-        if user_feedback:
+        if user_feedback and user_feedback.content:
             feedback_section = (
-                f"\n## 투자자 피드백 (반드시 반영하세요)\n"
-                f"- 의견: {user_feedback.content}\n"
+                f"\n## 투자자가 직접 한 말 (반드시 반영하세요)\n"
+                f'"{user_feedback.content}"\n'
             )
-            if user_feedback.focus_on:
-                feedback_section += f"- 집중 요청 사항: {', '.join(user_feedback.focus_on)}\n"
-            if user_feedback.additional_context:
-                feedback_section += f"- 추가 정보: {user_feedback.additional_context}\n"
-            if user_feedback.override_stance:
-                feedback_section += (
-                    f"- 투자자 선호 방향: {user_feedback.override_stance.upper()}\n"
-                )
 
         prompt = (
             f"당신은 '{self.name}' ({self.role})입니다.\n\n"
@@ -268,7 +250,7 @@ class BaseAnalystAgent(ABC):
     @staticmethod
     def _format_holding_info(holding: Holding, portfolio: Portfolio) -> str:
         """종목 정보를 분석용 텍스트로 포맷."""
-        return (
+        info = (
             f"종목명: {holding.name}\n"
             f"티커: {holding.ticker}\n"
             f"자산군: {holding.asset_class.value}\n"
@@ -279,3 +261,13 @@ class BaseAnalystAgent(ABC):
             f"포트폴리오 비중: {portfolio.weight_of(holding):.1f}%\n"
             f"매수 근거: {holding.memo or '없음'}"
         )
+
+        if holding.financial_data:
+            info += f"\n\n## 재무 데이터\n{holding.financial_data}"
+
+        if holding.reports:
+            info += "\n\n## 참고 자료/리포트"
+            for i, report in enumerate(holding.reports, 1):
+                info += f"\n\n### 자료 {i}\n{report}"
+
+        return info
