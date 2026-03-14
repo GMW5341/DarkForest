@@ -138,12 +138,13 @@ class ReasoningEngine:
         self,
         client: ClaudeClient,
         frames: list[QuestionFrame] | None = None,
+        agents: list[BaseAnalystAgent] | None = None,
     ):
         self.client = client
         self.frames = frames or DEFAULT_FRAMES
 
-        # AI 애널리스트 에이전트 초기화
-        self.agents: list[BaseAnalystAgent] = [
+        # AI 애널리스트 에이전트 초기화 (외부 주입 or 기본 3인)
+        self.agents: list[BaseAnalystAgent] = agents or [
             FundamentalAgent(client),
             ValuationAgent(client),
             RiskAgent(client),

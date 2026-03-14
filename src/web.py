@@ -20,6 +20,12 @@ from pydantic import BaseModel, Field
 
 from src.analyzer import PortfolioAnalyzer
 from src.agents.debate import DebateOrchestrator
+from src.agents.macro_base import MacroAgentOpinion
+from src.agents.macro_debate import MacroDebateOrchestrator, MacroDebateRound
+from src.agents.macro_economist import MacroEconomistAgent
+from src.agents.market_strategist import MarketStrategistAgent
+from src.agents.systemic_risk import SystemicRiskAgent
+from src.api.client import ClaudeClient
 from src.models.analysis import (
     AgentOpinion,
     DebatePhase,
@@ -27,6 +33,12 @@ from src.models.analysis import (
     DebateRound,
     PortfolioAnalysis,
     UserFeedback,
+)
+from src.models.macro import (
+    MacroDebateResult,
+    MacroDebateRoundModel,
+    MacroMessageModel,
+    MacroTopic,
 )
 from src.models.portfolio import Holding, Portfolio
 
@@ -341,6 +353,232 @@ async def get_debate_session(session_id: str):
         result=session.result,
         error=session.error,
     )
+
+
+# ── 거시 경제 토론 API ──
+
+class MacroDebateSession:
+    """거시 경제 토론 세션 상태."""
+
+    def __init__(
+        self,
+        session_id: str,
+        topic: str,
+        context: str,
+        api_key: str,
+        model: str,
+    ):
+        self.session_id = session_id
+        self.topic = topic
+        self.context = context
+        self.api_key = api_key
+        self.model = model
+        self.phase = "waiting_start"
+        self.rounds: list[MacroDebateRound] = []
+        self.opinions: list[MacroAgentOpinion] = []
+        self.user_feedbacks: list[UserFeedback] = []
+        self.result: dict | None = None
+        self.error: str | None = None
+
+
+_macro_sessions: dict[str, MacroDebateSession] = {}
+
+
+class MacroStartRequest(BaseModel):
+    topic: MacroTopic
+    api_key: str | None = Field(default=None)
+    model: str = Field(default="claude-sonnet-4-20250514")
+
+
+class MacroSessionResponse(BaseModel):
+    session_id: str
+    phase: str
+    rounds: list[MacroDebateRoundModel] = Field(default_factory=list)
+    result: MacroDebateResult | None = None
+    error: str | None = None
+
+
+def _get_macro_orchestrator(session: MacroDebateSession) -> MacroDebateOrchestrator:
+    client = ClaudeClient(api_key=session.api_key, model=session.model)
+    agents = [
+        MacroEconomistAgent(client),
+        MarketStrategistAgent(client),
+        SystemicRiskAgent(client),
+    ]
+    return MacroDebateOrchestrator(agents=agents, synthesizer_client=client)
+
+
+def _round_to_model(rnd: MacroDebateRound) -> MacroDebateRoundModel:
+    return MacroDebateRoundModel(
+        round_number=rnd.round_number,
+        round_type=rnd.round_type,
+        messages=[
+            MacroMessageModel(
+                agent_name=m.agent_name,
+                round_number=m.round_number,
+                message_type=m.message_type,
+                stance=m.stance,
+                confidence=m.confidence,
+                content=m.content,
+                agreements=m.agreements,
+                disagreements=m.disagreements,
+            )
+            for m in rnd.messages
+        ],
+    )
+
+
+def _macro_response(session: MacroDebateSession, result: MacroDebateResult | None = None) -> MacroSessionResponse:
+    return MacroSessionResponse(
+        session_id=session.session_id,
+        phase=session.phase,
+        rounds=[_round_to_model(r) for r in session.rounds],
+        result=result,
+        error=session.error,
+    )
+
+
+@app.post("/api/macro/start", response_model=MacroSessionResponse)
+async def macro_start(req: MacroStartRequest):
+    """거시 경제 토론 Round 1 시작."""
+    api_key = req.api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY가 필요합니다.")
+
+    session_id = str(uuid.uuid4())[:8]
+    session = MacroDebateSession(
+        session_id=session_id,
+        topic=req.topic.title,
+        context=req.topic.context,
+        api_key=api_key,
+        model=req.model,
+    )
+
+    try:
+        orchestrator = _get_macro_orchestrator(session)
+        round1, opinions = await orchestrator.run_round1(
+            session.topic, session.context,
+        )
+        session.rounds.append(round1)
+        session.opinions = opinions
+        session.phase = "round1_done"
+    except Exception as e:
+        session.error = str(e)
+
+    _macro_sessions[session_id] = session
+    return _macro_response(session)
+
+
+@app.post("/api/macro/{session_id}/round2", response_model=MacroSessionResponse)
+async def macro_round2(session_id: str, feedback: FeedbackRequest | None = None):
+    """거시 토론 Round 2: 피드백 반영 + 상호 반론."""
+    session = _macro_sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+    if session.phase != "round1_done":
+        raise HTTPException(status_code=400, detail=f"현재 단계: {session.phase}")
+
+    user_fb = None
+    if feedback and feedback.message.strip():
+        user_fb = UserFeedback(content=feedback.message.strip())
+        session.user_feedbacks.append(user_fb)
+
+    try:
+        orchestrator = _get_macro_orchestrator(session)
+        round2 = await orchestrator.run_round2(
+            session.topic, session.opinions,
+            user_feedback=user_fb, context=session.context,
+        )
+        session.rounds.append(round2)
+        session.phase = "round2_done"
+    except Exception as e:
+        session.error = str(e)
+
+    return _macro_response(session)
+
+
+@app.post("/api/macro/{session_id}/round3", response_model=MacroSessionResponse)
+async def macro_round3(session_id: str, feedback: FeedbackRequest | None = None):
+    """거시 토론 Round 3: 피드백 반영 + 최종 입장."""
+    session = _macro_sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+    if session.phase != "round2_done":
+        raise HTTPException(status_code=400, detail=f"현재 단계: {session.phase}")
+
+    user_fb = None
+    if feedback and feedback.message.strip():
+        user_fb = UserFeedback(content=feedback.message.strip())
+        session.user_feedbacks.append(user_fb)
+
+    try:
+        orchestrator = _get_macro_orchestrator(session)
+        round3 = await orchestrator.run_round3(
+            session.topic, session.rounds,
+            user_feedback=user_fb, context=session.context,
+        )
+        session.rounds.append(round3)
+        session.phase = "round3_done"
+    except Exception as e:
+        session.error = str(e)
+
+    return _macro_response(session)
+
+
+@app.post("/api/macro/{session_id}/synthesize", response_model=MacroSessionResponse)
+async def macro_synthesize(session_id: str, feedback: FeedbackRequest | None = None):
+    """거시 토론 최종 종합 판정."""
+    session = _macro_sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+    if session.phase != "round3_done":
+        raise HTTPException(status_code=400, detail=f"현재 단계: {session.phase}")
+
+    final_comment = ""
+    if feedback and feedback.message.strip():
+        user_fb = UserFeedback(content=feedback.message.strip())
+        session.user_feedbacks.append(user_fb)
+        final_comment = feedback.message.strip()
+
+    try:
+        orchestrator = _get_macro_orchestrator(session)
+        synthesis = await orchestrator.synthesize(
+            session.topic, session.rounds,
+            session.user_feedbacks, final_comment,
+            context=session.context,
+        )
+
+        # Parse investment_implications and risk_scenarios
+        from src.models.macro import InvestmentImplication, RiskScenario
+        implications = []
+        for imp in synthesis.get("investment_implications", []):
+            if isinstance(imp, dict):
+                implications.append(InvestmentImplication(**imp))
+        risk_scenarios = []
+        for rs in synthesis.get("risk_scenarios", []):
+            if isinstance(rs, dict):
+                risk_scenarios.append(RiskScenario(**rs))
+
+        result = MacroDebateResult(
+            topic=session.topic,
+            overall_stance=synthesis.get("overall_stance", "중립"),
+            confidence=min(max(synthesis.get("confidence", 0.5), 0.0), 1.0),
+            executive_summary=synthesis.get("executive_summary", ""),
+            consensus_points=synthesis.get("consensus_points", []),
+            dissent_points=synthesis.get("dissent_points", []),
+            investment_implications=implications,
+            risk_scenarios=risk_scenarios,
+            action_items=synthesis.get("action_items", []),
+            monitoring_points=synthesis.get("monitoring_points", []),
+            rounds=[_round_to_model(r) for r in session.rounds],
+        )
+        session.result = synthesis
+        session.phase = "synthesized"
+    except Exception as e:
+        session.error = str(e)
+        result = None
+
+    return _macro_response(session, result=result)
 
 
 # ── 기타 ──

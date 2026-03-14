@@ -22,11 +22,13 @@ class PortfolioAnalyzer:
         api_key: str | None = None,
         model: str = "claude-sonnet-4-20250514",
         custom_frames: list[QuestionFrame] | None = None,
+        agents: list | None = None,
     ):
         self.client = ClaudeClient(api_key=api_key, model=model)
         self.engine = ReasoningEngine(
             client=self.client,
             frames=custom_frames,
+            agents=agents,
         )
 
     async def analyze(self, portfolio: Portfolio) -> PortfolioAnalysis:

@@ -19,6 +19,7 @@
             --red: #f44336;
             --orange: #ff9800;
             --magenta: #e040fb;
+            --cyan: #00bcd4;
             --user-bg: #1a1a3a;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -28,7 +29,6 @@
             min-height: 100vh; display: flex; flex-direction: column;
         }
 
-        /* Header */
         .top-bar {
             background: var(--surface); border-bottom: 1px solid var(--border);
             padding: 0.8rem 1.5rem; display: flex; align-items: center; justify-content: space-between;
@@ -40,9 +40,20 @@
             background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
             padding: 0.4rem 0.6rem; color: var(--text); font-size: 0.8rem; outline: none;
         }
-        .top-bar-right input:focus, .top-bar-right select:focus { border-color: var(--accent); }
 
-        /* Phase indicator */
+        /* Mode tabs */
+        .mode-tabs {
+            background: var(--surface); border-bottom: 1px solid var(--border);
+            display: flex; justify-content: center; gap: 0;
+        }
+        .mode-tab {
+            background: none; border: none; color: var(--text-dim); padding: 0.6rem 2rem;
+            font-size: 0.85rem; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent;
+            font-family: inherit; transition: all 0.2s;
+        }
+        .mode-tab:hover { color: var(--text); background: var(--surface-2); }
+        .mode-tab.active { color: var(--magenta); border-bottom-color: var(--magenta); }
+
         .phase-bar {
             background: var(--surface); border-bottom: 1px solid var(--border);
             padding: 0.5rem 1.5rem; display: flex; align-items: center; justify-content: center; gap: 1.5rem;
@@ -54,38 +65,24 @@
         .phase-dot .dot.active { background: var(--magenta); box-shadow: 0 0 6px var(--magenta); }
         .phase-dot .dot.done { background: var(--green); }
 
-        /* Main chat area */
         .chat-container {
             flex: 1; overflow-y: auto; padding: 1rem 1.5rem; max-width: 900px;
             margin: 0 auto; width: 100%;
         }
 
-        /* Messages */
         .msg { margin-bottom: 1rem; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
-        .msg-system {
-            text-align: center; font-size: 0.8rem; color: var(--text-dim);
-            padding: 0.5rem; font-style: italic;
-        }
-
-        .msg-user {
-            display: flex; justify-content: flex-end;
-        }
+        .msg-system { text-align: center; font-size: 0.8rem; color: var(--text-dim); padding: 0.5rem; font-style: italic; }
+        .msg-user { display: flex; justify-content: flex-end; }
         .msg-user .bubble {
             background: var(--user-bg); border: 1px solid #2a2a5a; border-radius: 16px 16px 4px 16px;
             padding: 0.7rem 1rem; max-width: 70%; font-size: 0.9rem;
         }
 
-        .msg-agent {
-            display: flex; flex-direction: column; gap: 0.3rem;
-        }
-        .msg-agent .agent-label {
-            font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;
-        }
-        .msg-agent .agent-label .badge {
-            font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 10px; font-weight: 600;
-        }
+        .msg-agent { display: flex; flex-direction: column; gap: 0.3rem; }
+        .msg-agent .agent-label { font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+        .msg-agent .agent-label .badge { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 10px; font-weight: 600; }
         .msg-agent .bubble {
             background: var(--surface); border: 1px solid var(--border); border-radius: 4px 16px 16px 16px;
             padding: 0.8rem 1rem; max-width: 85%; font-size: 0.88rem; white-space: pre-wrap;
@@ -99,10 +96,19 @@
         .agent-committee .agent-label { color: var(--magenta); }
         .agent-committee .bubble { border-left: 3px solid var(--magenta); }
 
+        /* Macro agent colors */
+        .agent-macro-economist .agent-label { color: #4fc3f7; }
+        .agent-macro-economist .bubble { border-left: 3px solid #4fc3f7; }
+        .agent-market-strategist .agent-label { color: var(--cyan); }
+        .agent-market-strategist .bubble { border-left: 3px solid var(--cyan); }
+        .agent-systemic-risk .agent-label { color: var(--orange); }
+        .agent-systemic-risk .bubble { border-left: 3px solid var(--orange); }
+
         .badge-buy { background: #1b5e20; color: #a5d6a7; }
         .badge-wait { background: #f57f17; color: #fff9c4; }
         .badge-pass { background: #b71c1c; color: #ffcdd2; }
         .badge-needs_more_data { background: var(--surface-2); color: var(--text-dim); }
+        .badge-macro { background: #1a237e; color: #90caf9; }
 
         .msg-verdict {
             background: var(--surface); border: 2px solid var(--magenta);
@@ -118,8 +124,10 @@
         .verdict-details ul { list-style: none; padding: 0; }
         .verdict-details .point-agree::before { content: "+ "; color: var(--green); font-weight: bold; }
         .verdict-details .point-dissent::before { content: "? "; color: var(--yellow); font-weight: bold; }
+        .verdict-details .point-risk::before { content: "! "; color: var(--red); font-weight: bold; }
+        .verdict-details .point-action::before { content: "> "; color: var(--cyan); font-weight: bold; }
+        .verdict-details .point-monitor::before { content: "@ "; color: var(--yellow); font-weight: bold; }
 
-        /* Loading */
         .msg-loading { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; }
         .typing-dots { display: flex; gap: 4px; }
         .typing-dots span {
@@ -130,14 +138,8 @@
         .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes blink { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
 
-        /* Input area */
-        .input-area {
-            background: var(--surface); border-top: 1px solid var(--border);
-            padding: 0.8rem 1.5rem;
-        }
-        .input-row {
-            max-width: 900px; margin: 0 auto; display: flex; gap: 0.5rem; align-items: flex-end;
-        }
+        .input-area { background: var(--surface); border-top: 1px solid var(--border); padding: 0.8rem 1.5rem; }
+        .input-row { max-width: 900px; margin: 0 auto; display: flex; gap: 0.5rem; align-items: flex-end; }
         .input-row textarea {
             flex: 1; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
             padding: 0.6rem 1rem; color: var(--text); font-size: 0.9rem; outline: none;
@@ -154,7 +156,6 @@
         .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .input-hint { max-width: 900px; margin: 0.3rem auto 0; font-size: 0.72rem; color: var(--text-dim); }
 
-        /* Setup panel (collapsible) */
         .setup-panel {
             background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
             margin-bottom: 1rem; overflow: hidden;
@@ -182,21 +183,34 @@
         .setup-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
         .setup-actions button {
             background: var(--magenta); color: white; border: none; border-radius: 8px;
-            padding: 0.6rem 1.5rem; font-size: 0.85rem; font-weight: 600; cursor: pointer;
-            font-family: inherit;
+            padding: 0.6rem 1.5rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: inherit;
         }
         .setup-actions button:hover { opacity: 0.9; }
         .setup-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
-        .setup-actions .btn-example {
-            background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
-        }
+        .setup-actions .btn-example { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
 
         .error-msg { background: #1a0000; border: 1px solid var(--red); border-radius: 8px; padding: 0.8rem; color: #ff8a80; font-size: 0.85rem; }
         .hidden { display: none !important; }
+
+        /* Implication cards */
+        .implication-card {
+            background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+            padding: 0.6rem 0.8rem; margin: 0.3rem 0;
+        }
+        .implication-card .cat { font-size: 0.7rem; color: var(--cyan); font-weight: 600; text-transform: uppercase; }
+        .implication-card .rec { font-size: 0.85rem; margin: 0.2rem 0; }
+        .implication-card .rat { font-size: 0.75rem; color: var(--text-dim); }
+
+        .risk-card {
+            background: var(--surface-2); border-left: 3px solid var(--orange); border-radius: 0 8px 8px 0;
+            padding: 0.5rem 0.8rem; margin: 0.3rem 0;
+        }
+        .risk-card .scenario { font-size: 0.85rem; }
+        .risk-card .meta { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.2rem; }
+        .risk-card .hedge { font-size: 0.8rem; color: var(--green); margin-top: 0.2rem; }
     </style>
 </head>
 <body>
-    <!-- Top Bar -->
     <div class="top-bar">
         <h1><span>Dark</span>Forest</h1>
         <div class="top-bar-right">
@@ -207,6 +221,12 @@
                 <option value="claude-opus-4-6">Opus 4.6</option>
             </select>
         </div>
+    </div>
+
+    <!-- Mode Tabs -->
+    <div class="mode-tabs">
+        <button class="mode-tab active" id="tabStock" onclick="switchMode('stock')">종목 분석</button>
+        <button class="mode-tab" id="tabMacro" onclick="switchMode('macro')">거시 경제 토론</button>
     </div>
 
     <!-- Phase Bar -->
@@ -222,15 +242,15 @@
 
     <!-- Chat Area -->
     <div class="chat-container" id="chat">
-        <!-- Welcome + Setup -->
-        <div class="msg msg-system">DarkForest — 3명의 AI 애널리스트가 토론하고, 당신이 매 라운드마다 대화로 조율합니다.</div>
+        <div class="msg msg-system" id="welcomeMsg">DarkForest — 3명의 AI 애널리스트가 토론하고, 당신이 매 라운드마다 대화로 조율합니다.</div>
 
-        <div class="setup-panel" id="setupPanel">
-            <button class="setup-toggle" onclick="toggleSetup()">
+        <!-- Stock Setup Panel -->
+        <div class="setup-panel" id="stockSetup">
+            <button class="setup-toggle" onclick="togglePanel('stockSetupBody','stockArrow')">
                 <span>종목 정보 입력</span>
-                <span id="setupArrow">&#9660;</span>
+                <span id="stockArrow">&#9660;</span>
             </button>
-            <div class="setup-body open" id="setupBody">
+            <div class="setup-body open" id="stockSetupBody">
                 <div class="setup-grid">
                     <div><label>Ticker</label><input type="text" id="hTicker" placeholder="005930"></div>
                     <div><label>종목명</label><input type="text" id="hName" placeholder="삼성전자"></div>
@@ -255,17 +275,41 @@
                         </select>
                     </div>
                     <div class="setup-wide">
-                        <label>재무 데이터 (자유 형식 — 매출, PER, ROE 등 텍스트로 붙여넣기)</label>
-                        <textarea id="hFinancial" placeholder="2024 매출: 258조원 (+12% YoY)&#10;영업이익: 32조원&#10;PER: 12.5배&#10;ROE: 9.8%&#10;배당수익률: 2.1%"></textarea>
+                        <label>재무 데이터 (자유 형식)</label>
+                        <textarea id="hFinancial" placeholder="2024 매출: 258조원 (+12% YoY)&#10;영업이익: 32조원&#10;PER: 12.5배&#10;ROE: 9.8%"></textarea>
                     </div>
                     <div class="setup-wide">
-                        <label>리포트/참고 자료 (증권사 리포트, 뉴스 등 텍스트로 붙여넣기. 여러 건은 --- 구분)</label>
-                        <textarea id="hReports" placeholder="[한국투자] 삼성전자 목표가 9만원 유지&#10;HBM 수요 확대에 따른 메모리 업황 턴어라운드 기대..."></textarea>
+                        <label>리포트/참고 자료 (여러 건은 --- 구분)</label>
+                        <textarea id="hReports" placeholder="증권사 리포트, 뉴스 등 텍스트로 붙여넣기..."></textarea>
                     </div>
                 </div>
                 <div class="setup-actions">
-                    <button class="btn-example" onclick="loadExample()">예시 불러오기</button>
-                    <button id="startBtn" onclick="startDebate()">토론 시작</button>
+                    <button class="btn-example" onclick="loadStockExample()">예시 불러오기</button>
+                    <button id="stockStartBtn" onclick="startStockDebate()">토론 시작</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Macro Setup Panel -->
+        <div class="setup-panel hidden" id="macroSetup">
+            <button class="setup-toggle" onclick="togglePanel('macroSetupBody','macroArrow')">
+                <span>거시 경제 주제 입력</span>
+                <span id="macroArrow">&#9660;</span>
+            </button>
+            <div class="setup-body open" id="macroSetupBody">
+                <div class="setup-grid">
+                    <div class="setup-wide">
+                        <label>토론 주제</label>
+                        <input type="text" id="mTopic" placeholder="예: 사모대출 사기 사태와 대규모 환매가 투자 시장에 미치는 영향">
+                    </div>
+                    <div class="setup-wide">
+                        <label>배경 정보 / 참고 자료 (선택 — 뉴스, 데이터 등 자유 형식으로 붙여넣기)</label>
+                        <textarea id="mContext" style="min-height:120px;" placeholder="관련 뉴스, 통계, 보고서 등을 자유롭게 붙여넣으세요.&#10;&#10;예시:&#10;- 사모대출 펀드 A사 환매 중단 (2025.12)&#10;- 관련 펀드 총 규모 약 3조원, 환매 요청 1.2조원&#10;- 금감원 실태 조사 착수&#10;- 연쇄 환매 우려로 채권 시장 변동성 확대"></textarea>
+                    </div>
+                </div>
+                <div class="setup-actions">
+                    <button class="btn-example" onclick="loadMacroExample()">예시 불러오기</button>
+                    <button id="macroStartBtn" onclick="startMacroDebate()">토론 시작</button>
                 </div>
             </div>
         </div>
@@ -277,21 +321,24 @@
             <textarea id="userInput" placeholder="의견을 입력하세요... (엔터로 전송, Shift+엔터로 줄바꿈)" rows="1"></textarea>
             <button class="send-btn" id="sendBtn" onclick="sendFeedback()">&#8593;</button>
         </div>
-        <div class="input-hint" id="inputHint">라운드 분석이 끝나면 여기에 의견을 입력하세요. 빈칸으로 전송하면 피드백 없이 진행합니다.</div>
+        <div class="input-hint" id="inputHint"></div>
     </div>
 
     <script>
-        const DECISION = { buy: 'BUY', wait: 'WAIT', pass: 'PASS', needs_more_data: 'HOLD' };
+        // ── State ──
+        let currentMode = 'stock'; // 'stock' | 'macro'
+        let sessionId = null;
+        let pendingAction = null;
+
         const AGENT_CLS = {
             '펀더멘털 애널리스트': 'agent-fundamental',
             '밸류에이션 애널리스트': 'agent-valuation',
             '리스크 애널리스트': 'agent-risk',
+            '거시 경제 전문가': 'agent-macro-economist',
+            '시장 전략가': 'agent-market-strategist',
+            '시스템 리스크 전문가': 'agent-systemic-risk',
         };
         const ROUND_NAMES = { opening: 'Round 1: 독립 분석', cross_examination: 'Round 2: 상호 반론', final: 'Round 3: 최종 입장' };
-
-        let sessionId = null;
-        let phase = null; // round1_done, round2_done, round3_done, synthesized
-        let pendingAction = null; // function to call on send
 
         const chat = document.getElementById('chat');
         const inputArea = document.getElementById('inputArea');
@@ -299,38 +346,62 @@
         const sendBtn = document.getElementById('sendBtn');
 
         function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+        function scrollBottom() { chat.scrollTop = chat.scrollHeight; }
 
-        function toggleSetup() {
-            const body = document.getElementById('setupBody');
-            const arrow = document.getElementById('setupArrow');
+        // ── Mode switching ──
+        function switchMode(mode) {
+            if (sessionId) { if (!confirm('진행 중인 토론이 있습니다. 모드를 전환하시겠습니까?')) return; }
+            currentMode = mode;
+            sessionId = null;
+            pendingAction = null;
+
+            document.getElementById('tabStock').className = 'mode-tab' + (mode === 'stock' ? ' active' : '');
+            document.getElementById('tabMacro').className = 'mode-tab' + (mode === 'macro' ? ' active' : '');
+
+            document.getElementById('stockSetup').classList.toggle('hidden', mode !== 'stock');
+            document.getElementById('macroSetup').classList.toggle('hidden', mode !== 'macro');
+            document.getElementById('phaseBar').style.display = 'none';
+            inputArea.style.display = 'none';
+
+            // Clear chat except welcome and setup panels
+            const children = [...chat.children];
+            for (const c of children) {
+                if (c.id !== 'welcomeMsg' && c.id !== 'stockSetup' && c.id !== 'macroSetup') c.remove();
+            }
+
+            document.getElementById('welcomeMsg').textContent = mode === 'stock'
+                ? 'DarkForest — 3명의 AI 애널리스트가 토론하고, 당신이 매 라운드마다 대화로 조율합니다.'
+                : 'DarkForest — 3명의 매크로 전문가가 거시 경제 이슈를 토론하고, 당신이 대화로 조율합니다.';
+
+            // Reset buttons
+            document.getElementById('stockStartBtn').disabled = false;
+            document.getElementById('macroStartBtn').disabled = false;
+        }
+
+        function togglePanel(bodyId, arrowId) {
+            const body = document.getElementById(bodyId);
+            const arrow = document.getElementById(arrowId);
             body.classList.toggle('open');
             arrow.textContent = body.classList.contains('open') ? '\u25B2' : '\u25BC';
         }
 
-        function scrollBottom() {
-            chat.scrollTop = chat.scrollHeight;
-        }
-
+        // ── UI helpers ──
         function addSystemMsg(text) {
             const d = document.createElement('div');
             d.className = 'msg msg-system';
             d.textContent = text;
-            chat.appendChild(d);
-            scrollBottom();
+            chat.appendChild(d); scrollBottom();
         }
-
         function addUserMsg(text) {
             const d = document.createElement('div');
             d.className = 'msg msg-user';
             d.innerHTML = `<div class="bubble">${esc(text)}</div>`;
-            chat.appendChild(d);
-            scrollBottom();
+            chat.appendChild(d); scrollBottom();
         }
-
         function addAgentMsg(name, content, stance, confidence) {
             const cls = AGENT_CLS[name] || 'agent-committee';
-            const stanceLabel = DECISION[stance] || stance || '';
-            const badgeCls = stance ? `badge-${stance}` : '';
+            const stanceLabel = stance || '';
+            const badgeCls = currentMode === 'macro' ? 'badge-macro' : `badge-${stance}`;
             const confText = confidence != null ? `${(confidence * 100).toFixed(0)}%` : '';
 
             const d = document.createElement('div');
@@ -338,49 +409,75 @@
             d.innerHTML = `
                 <div class="agent-label">
                     ${esc(name)}
-                    ${stanceLabel ? `<span class="badge ${badgeCls}">${stanceLabel}</span>` : ''}
+                    ${stanceLabel ? `<span class="badge ${badgeCls}">${esc(stanceLabel)}</span>` : ''}
                     ${confText ? `<span style="font-size:0.7rem;color:var(--text-dim)">${confText}</span>` : ''}
                 </div>
                 <div class="bubble">${esc(content)}</div>
             `;
-            chat.appendChild(d);
-            scrollBottom();
+            chat.appendChild(d); scrollBottom();
         }
-
         function addLoading(text) {
             const d = document.createElement('div');
-            d.className = 'msg msg-loading';
-            d.id = 'loadingMsg';
+            d.className = 'msg msg-loading'; d.id = 'loadingMsg';
             d.innerHTML = `<div class="typing-dots"><span></span><span></span><span></span></div><span style="font-size:0.8rem;color:var(--text-dim)">${esc(text)}</span>`;
-            chat.appendChild(d);
-            scrollBottom();
+            chat.appendChild(d); scrollBottom();
         }
-        function removeLoading() {
-            const el = document.getElementById('loadingMsg');
-            if (el) el.remove();
-        }
-
+        function removeLoading() { const el = document.getElementById('loadingMsg'); if (el) el.remove(); }
         function addError(text) {
             const d = document.createElement('div');
             d.className = 'msg';
             d.innerHTML = `<div class="error-msg">${esc(text)}</div>`;
-            chat.appendChild(d);
-            scrollBottom();
+            chat.appendChild(d); scrollBottom();
         }
 
-        function addVerdict(result) {
+        function setPhase(p) {
+            document.getElementById('phaseBar').style.display = 'flex';
+            const dots = ['pd1','pdFb1','pd2','pdFb2','pd3','pdFb3','pdFinal'];
+            const map = { round1_running:0, round1_done:1, round2_running:2, round2_done:3, round3_running:4, round3_done:5, synthesized:6 };
+            const idx = map[p] ?? -1;
+            dots.forEach((id, i) => {
+                document.getElementById(id).className = 'dot' + (i < idx ? ' done' : i === idx ? ' active' : '');
+            });
+        }
+
+        function renderRoundMessages(round) {
+            const roundName = ROUND_NAMES[round.round_type] || `Round ${round.round_number}`;
+            addSystemMsg(`── ${roundName} ──`);
+            for (const msg of round.messages || []) {
+                addAgentMsg(msg.agent_name, msg.content, msg.stance, msg.confidence);
+            }
+        }
+
+        function enableInput(hint, action) {
+            inputArea.style.display = 'block';
+            userInput.disabled = false; sendBtn.disabled = false;
+            document.getElementById('inputHint').textContent = hint;
+            pendingAction = action; userInput.focus();
+        }
+        function disableInput() { userInput.disabled = true; sendBtn.disabled = true; }
+
+        async function sendFeedback() {
+            if (!pendingAction) return;
+            const text = userInput.value.trim();
+            if (text) addUserMsg(text);
+            userInput.value = ''; userInput.style.height = 'auto';
+            disableInput();
+            await pendingAction(text);
+        }
+
+        // ── Stock Verdict ──
+        function addStockVerdict(result) {
+            const DECISION = { buy: 'BUY', wait: 'WAIT', pass: 'PASS', needs_more_data: 'HOLD' };
             const label = DECISION[result.final_decision] || result.final_decision;
             const conf = ((result.final_confidence || 0) * 100).toFixed(0);
             const confColor = result.final_confidence >= 0.7 ? 'var(--green)' : result.final_confidence >= 0.5 ? 'var(--yellow)' : 'var(--red)';
 
-            let html = `
-                <div class="msg-verdict">
-                    <h3>투자위원회 최종 판정: <span class="badge badge-${result.final_decision}" style="font-size:1.1rem;padding:0.3rem 1rem;">${label}</span></h3>
-                    <div class="confidence-bar"><div class="confidence-fill" style="width:${conf}%;background:${confColor}"></div></div>
-                    <div style="font-size:0.85rem;">확신도: ${conf}%</div>
-                    <p style="margin-top:0.8rem;font-size:0.9rem;text-align:left;white-space:pre-wrap;">${esc(result.final_reasoning || '')}</p>
-                    <div class="verdict-details">
-            `;
+            let html = `<div class="msg-verdict">
+                <h3>투자위원회 최종 판정: <span class="badge badge-${result.final_decision}" style="font-size:1.1rem;padding:0.3rem 1rem;">${label}</span></h3>
+                <div class="confidence-bar"><div class="confidence-fill" style="width:${conf}%;background:${confColor}"></div></div>
+                <div style="font-size:0.85rem;">확신도: ${conf}%</div>
+                <p style="margin-top:0.8rem;font-size:0.9rem;text-align:left;white-space:pre-wrap;">${esc(result.final_reasoning || '')}</p>
+                <div class="verdict-details">`;
             if (result.consensus_points?.length) {
                 html += `<h4>합의 포인트</h4><ul>`;
                 for (const p of result.consensus_points) html += `<li class="point-agree">${esc(p)}</li>`;
@@ -395,54 +492,72 @@
             if (result.risk_summary) html += `<h4>핵심 리스크</h4><p>${esc(result.risk_summary)}</p>`;
             if (result.action_items?.length) {
                 html += `<h4>Action Items</h4><ul>`;
-                for (const a of result.action_items) html += `<li>&gt; ${esc(a)}</li>`;
+                for (const a of result.action_items) html += `<li class="point-action">${esc(a)}</li>`;
                 html += `</ul>`;
             }
-            if (result.user_feedbacks?.length) {
-                html += `<p style="margin-top:0.8rem;font-size:0.75rem;color:var(--text-dim);">반영된 사용자 피드백: ${result.user_feedbacks.length}건</p>`;
+            html += `</div></div>`;
+            const d = document.createElement('div'); d.className = 'msg'; d.innerHTML = html;
+            chat.appendChild(d); scrollBottom();
+        }
+
+        // ── Macro Verdict ──
+        function addMacroVerdict(result) {
+            const conf = ((result.confidence || 0) * 100).toFixed(0);
+            const confColor = result.confidence >= 0.7 ? 'var(--green)' : result.confidence >= 0.5 ? 'var(--yellow)' : 'var(--red)';
+
+            let html = `<div class="msg-verdict" style="border-color:var(--cyan);">
+                <h3>전략 회의 최종 권고: <span class="badge badge-macro" style="font-size:1.1rem;padding:0.3rem 1rem;">${esc(result.overall_stance || '중립')}</span></h3>
+                <div class="confidence-bar"><div class="confidence-fill" style="width:${conf}%;background:${confColor}"></div></div>
+                <div style="font-size:0.85rem;">확신도: ${conf}%</div>
+                <p style="margin-top:0.8rem;font-size:0.9rem;text-align:left;white-space:pre-wrap;">${esc(result.executive_summary || '')}</p>
+                <div class="verdict-details">`;
+
+            if (result.consensus_points?.length) {
+                html += `<h4>합의 포인트</h4><ul>`;
+                for (const p of result.consensus_points) html += `<li class="point-agree">${esc(p)}</li>`;
+                html += `</ul>`;
+            }
+            if (result.dissent_points?.length) {
+                html += `<h4>의견 불일치</h4><ul>`;
+                for (const p of result.dissent_points) html += `<li class="point-dissent">${esc(p)}</li>`;
+                html += `</ul>`;
+            }
+            if (result.investment_implications?.length) {
+                html += `<h4>투자 함의</h4>`;
+                for (const imp of result.investment_implications) {
+                    html += `<div class="implication-card">
+                        <div class="cat">${esc(imp.category || '')}</div>
+                        <div class="rec">${esc(imp.recommendation || '')}</div>
+                        <div class="rat">${esc(imp.rationale || '')}</div>
+                    </div>`;
+                }
+            }
+            if (result.risk_scenarios?.length) {
+                html += `<h4>리스크 시나리오</h4>`;
+                for (const rs of result.risk_scenarios) {
+                    html += `<div class="risk-card">
+                        <div class="scenario">${esc(rs.scenario || '')}</div>
+                        <div class="meta">확률: ${esc(rs.probability || '?')} / 영향: ${esc(rs.impact || '?')}</div>
+                        ${rs.hedge ? `<div class="hedge">대응: ${esc(rs.hedge)}</div>` : ''}
+                    </div>`;
+                }
+            }
+            if (result.action_items?.length) {
+                html += `<h4>지금 당장 해야 할 것</h4><ul>`;
+                for (const a of result.action_items) html += `<li class="point-action">${esc(a)}</li>`;
+                html += `</ul>`;
+            }
+            if (result.monitoring_points?.length) {
+                html += `<h4>앞으로 주시할 것</h4><ul>`;
+                for (const m of result.monitoring_points) html += `<li class="point-monitor">${esc(m)}</li>`;
+                html += `</ul>`;
             }
             html += `</div></div>`;
-
-            const d = document.createElement('div');
-            d.className = 'msg';
-            d.innerHTML = html;
-            chat.appendChild(d);
-            scrollBottom();
+            const d = document.createElement('div'); d.className = 'msg'; d.innerHTML = html;
+            chat.appendChild(d); scrollBottom();
         }
 
-        // Phase dots
-        function setPhase(p) {
-            document.getElementById('phaseBar').style.display = 'flex';
-            const dots = ['pd1','pdFb1','pd2','pdFb2','pd3','pdFb3','pdFinal'];
-            const map = { round1_running:0, round1_done:1, round2_running:2, round2_done:3, round3_running:4, round3_done:5, synthesized:6 };
-            const idx = map[p] ?? -1;
-            dots.forEach((id, i) => {
-                const el = document.getElementById(id);
-                el.className = 'dot' + (i < idx ? ' done' : i === idx ? ' active' : '');
-            });
-        }
-
-        function renderRoundMessages(round) {
-            const roundName = ROUND_NAMES[round.round_type] || `Round ${round.round_number}`;
-            addSystemMsg(`── ${roundName} ──`);
-            for (const msg of round.messages || []) {
-                addAgentMsg(msg.agent_name, msg.content, msg.stance, msg.confidence);
-            }
-        }
-
-        function enableInput(hint, action) {
-            inputArea.style.display = 'block';
-            userInput.disabled = false;
-            sendBtn.disabled = false;
-            document.getElementById('inputHint').textContent = hint;
-            pendingAction = action;
-            userInput.focus();
-        }
-        function disableInput() {
-            userInput.disabled = true;
-            sendBtn.disabled = true;
-        }
-
+        // ── Stock Flow ──
         function collectHolding() {
             const reports = document.getElementById('hReports').value.trim();
             return {
@@ -460,7 +575,7 @@
             };
         }
 
-        function loadExample() {
+        function loadStockExample() {
             document.getElementById('hTicker').value = '005930';
             document.getElementById('hName').value = '삼성전자';
             document.getElementById('hType').value = 'stock_kr';
@@ -474,149 +589,149 @@
             document.getElementById('hReports').value = '';
         }
 
-        // ── Main Flow ──
-
-        async function startDebate() {
+        async function startStockDebate() {
             const holding = collectHolding();
             if (!holding.ticker || holding.quantity <= 0) { alert('종목 정보를 입력하세요.'); return; }
 
-            document.getElementById('startBtn').disabled = true;
-            // Collapse setup
-            document.getElementById('setupBody').classList.remove('open');
-            document.getElementById('setupArrow').textContent = '\u25BC';
+            document.getElementById('stockStartBtn').disabled = true;
+            document.getElementById('stockSetupBody').classList.remove('open');
+            document.getElementById('stockArrow').textContent = '\u25BC';
 
             const portfolio = { name: 'Analysis', holdings: [holding] };
-
             addSystemMsg(`${holding.name} (${holding.ticker}) 토론을 시작합니다.`);
-            if (holding.financial_data) addSystemMsg('재무 데이터가 분석에 반영됩니다.');
-            if (holding.reports.length) addSystemMsg(`참고 자료 ${holding.reports.length}건이 분석에 반영됩니다.`);
-
             addLoading('Round 1: 애널리스트들이 독립 분석 중...');
             setPhase('round1_running');
 
             try {
                 const res = await fetch('/api/debate/start', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        holding, portfolio,
-                        api_key: document.getElementById('apiKey').value || null,
-                        model: document.getElementById('model').value,
-                    }),
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ holding, portfolio, api_key: document.getElementById('apiKey').value || null, model: document.getElementById('model').value }),
                 });
                 if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
-
                 const data = await res.json();
                 sessionId = data.session_id;
-                removeLoading();
-                setPhase('round1_done');
-
+                removeLoading(); setPhase('round1_done');
                 if (data.error) throw new Error(data.error);
                 if (data.rounds?.length > 0) renderRoundMessages(data.rounds[0]);
-
-                enableInput(
-                    'Round 1이 끝났습니다. 의견이 있으면 입력하세요. 빈칸이면 피드백 없이 Round 2로 진행합니다.',
-                    proceedRound2
-                );
-            } catch (e) {
-                removeLoading();
-                addError(e.message);
-                document.getElementById('startBtn').disabled = false;
-            }
+                enableInput('Round 1이 끝났습니다. 의견이 있으면 입력하세요.', stockRound2);
+            } catch (e) { removeLoading(); addError(e.message); document.getElementById('stockStartBtn').disabled = false; }
         }
 
-        async function sendFeedback() {
-            if (!pendingAction) return;
-            const text = userInput.value.trim();
-            if (text) addUserMsg(text);
-            userInput.value = '';
-            disableInput();
-            await pendingAction(text);
-        }
-
-        async function proceedRound2(feedbackText) {
-            addLoading('Round 2: 상호 반론 진행 중...');
-            setPhase('round2_running');
+        async function stockRound2(fb) {
+            addLoading('Round 2: 상호 반론 진행 중...'); setPhase('round2_running');
             try {
-                const res = await fetch(`/api/debate/${sessionId}/round2`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: feedbackText || '' }),
-                });
+                const res = await fetch(`/api/debate/${sessionId}/round2`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
                 if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
-                const data = await res.json();
-                removeLoading();
-                setPhase('round2_done');
+                const data = await res.json(); removeLoading(); setPhase('round2_done');
                 if (data.error) throw new Error(data.error);
-                if (data.rounds?.length > 1) renderRoundMessages(data.rounds[data.rounds.length - 1]);
-                enableInput(
-                    'Round 2가 끝났습니다. 의견이 있으면 입력하세요. 빈칸이면 피드백 없이 Round 3으로 진행합니다.',
-                    proceedRound3
-                );
-            } catch (e) {
-                removeLoading();
-                addError(e.message);
-            }
+                if (data.rounds?.length > 1) renderRoundMessages(data.rounds[data.rounds.length-1]);
+                enableInput('Round 2가 끝났습니다. 의견이 있으면 입력하세요.', stockRound3);
+            } catch(e) { removeLoading(); addError(e.message); }
         }
 
-        async function proceedRound3(feedbackText) {
-            addLoading('Round 3: 최종 입장 정리 중...');
-            setPhase('round3_running');
+        async function stockRound3(fb) {
+            addLoading('Round 3: 최종 입장 정리 중...'); setPhase('round3_running');
             try {
-                const res = await fetch(`/api/debate/${sessionId}/round3`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: feedbackText || '' }),
-                });
+                const res = await fetch(`/api/debate/${sessionId}/round3`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
                 if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
-                const data = await res.json();
-                removeLoading();
-                setPhase('round3_done');
+                const data = await res.json(); removeLoading(); setPhase('round3_done');
                 if (data.error) throw new Error(data.error);
-                if (data.rounds?.length > 2) renderRoundMessages(data.rounds[data.rounds.length - 1]);
-                enableInput(
-                    'Round 3이 끝났습니다. 최종 의견이 있으면 입력하세요. 빈칸이면 바로 최종 판정으로 진행합니다.',
-                    proceedSynthesize
-                );
-            } catch (e) {
-                removeLoading();
-                addError(e.message);
-            }
+                if (data.rounds?.length > 2) renderRoundMessages(data.rounds[data.rounds.length-1]);
+                enableInput('Round 3이 끝났습니다. 최종 의견이 있으면 입력하세요.', stockSynthesize);
+            } catch(e) { removeLoading(); addError(e.message); }
         }
 
-        async function proceedSynthesize(feedbackText) {
+        async function stockSynthesize(fb) {
             addLoading('투자위원회 최종 판정 중...');
             try {
-                const res = await fetch(`/api/debate/${sessionId}/synthesize`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: feedbackText || '' }),
+                const res = await fetch(`/api/debate/${sessionId}/synthesize`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
+                if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+                const data = await res.json(); removeLoading(); setPhase('synthesized');
+                if (data.error) throw new Error(data.error);
+                if (data.result) addStockVerdict(data.result);
+                inputArea.style.display = 'none'; pendingAction = null;
+                document.getElementById('stockStartBtn').disabled = false;
+                addSystemMsg('토론이 종료되었습니다.');
+            } catch(e) { removeLoading(); addError(e.message); }
+        }
+
+        // ── Macro Flow ──
+        function loadMacroExample() {
+            document.getElementById('mTopic').value = '사모대출 사기 사태와 대규모 환매가 투자 시장에 미치는 영향';
+            document.getElementById('mContext').value = '- 사모대출 펀드 다수에서 사기/부실 운용 적발\n- 환매 중단 펀드 속출, 투자자 피해 확대\n- 금감원 긴급 실태조사 착수\n- 사모펀드 전반에 대한 불신 확산\n- 관련 채권/대출 시장으로 전이 우려\n- 기관 투자자(연기금, 보험) 사모대출 비중 재검토 논의';
+        }
+
+        async function startMacroDebate() {
+            const topic = document.getElementById('mTopic').value.trim();
+            if (!topic) { alert('토론 주제를 입력하세요.'); return; }
+
+            document.getElementById('macroStartBtn').disabled = true;
+            document.getElementById('macroSetupBody').classList.remove('open');
+            document.getElementById('macroArrow').textContent = '\u25BC';
+
+            const context = document.getElementById('mContext').value.trim();
+            addSystemMsg(`거시 토론 주제: "${topic}"`);
+            if (context) addSystemMsg('배경 정보가 분석에 반영됩니다.');
+            addLoading('Round 1: 매크로 전문가들이 독립 분석 중...');
+            setPhase('round1_running');
+
+            try {
+                const res = await fetch('/api/macro/start', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic: { title: topic, context }, api_key: document.getElementById('apiKey').value || null, model: document.getElementById('model').value }),
                 });
                 if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
                 const data = await res.json();
-                removeLoading();
-                setPhase('synthesized');
+                sessionId = data.session_id;
+                removeLoading(); setPhase('round1_done');
                 if (data.error) throw new Error(data.error);
-                if (data.result) addVerdict(data.result);
-                inputArea.style.display = 'none';
-                pendingAction = null;
-                document.getElementById('startBtn').disabled = false;
-                addSystemMsg('토론이 종료되었습니다. 새로운 종목을 분석하려면 상단의 종목 정보를 수정하고 다시 시작하세요.');
-            } catch (e) {
-                removeLoading();
-                addError(e.message);
-            }
+                if (data.rounds?.length > 0) renderRoundMessages(data.rounds[0]);
+                enableInput('Round 1이 끝났습니다. 의견이 있으면 입력하세요.', macroRound2);
+            } catch(e) { removeLoading(); addError(e.message); document.getElementById('macroStartBtn').disabled = false; }
         }
 
-        // Enter to send
-        userInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendFeedback();
-            }
-        });
+        async function macroRound2(fb) {
+            addLoading('Round 2: 상호 반론 진행 중...'); setPhase('round2_running');
+            try {
+                const res = await fetch(`/api/macro/${sessionId}/round2`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
+                if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+                const data = await res.json(); removeLoading(); setPhase('round2_done');
+                if (data.error) throw new Error(data.error);
+                if (data.rounds?.length > 1) renderRoundMessages(data.rounds[data.rounds.length-1]);
+                enableInput('Round 2가 끝났습니다. 의견이 있으면 입력하세요.', macroRound3);
+            } catch(e) { removeLoading(); addError(e.message); }
+        }
 
-        // Auto-resize textarea
+        async function macroRound3(fb) {
+            addLoading('Round 3: 최종 입장 정리 중...'); setPhase('round3_running');
+            try {
+                const res = await fetch(`/api/macro/${sessionId}/round3`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
+                if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+                const data = await res.json(); removeLoading(); setPhase('round3_done');
+                if (data.error) throw new Error(data.error);
+                if (data.rounds?.length > 2) renderRoundMessages(data.rounds[data.rounds.length-1]);
+                enableInput('Round 3이 끝났습니다. 최종 의견이 있으면 입력하세요.', macroSynthesize);
+            } catch(e) { removeLoading(); addError(e.message); }
+        }
+
+        async function macroSynthesize(fb) {
+            addLoading('전략 회의 최종 권고 종합 중...');
+            try {
+                const res = await fetch(`/api/macro/${sessionId}/synthesize`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
+                if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+                const data = await res.json(); removeLoading(); setPhase('synthesized');
+                if (data.error) throw new Error(data.error);
+                if (data.result) addMacroVerdict(data.result);
+                inputArea.style.display = 'none'; pendingAction = null;
+                document.getElementById('macroStartBtn').disabled = false;
+                addSystemMsg('토론이 종료되었습니다.');
+            } catch(e) { removeLoading(); addError(e.message); }
+        }
+
+        // ── Input handlers ──
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFeedback(); }
+        });
         userInput.addEventListener('input', () => {
             userInput.style.height = 'auto';
             userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
