@@ -324,6 +324,7 @@ async def debate_synthesize(session_id: str, feedback: FeedbackRequest | None = 
             action_items=synthesis.get("action_items", []),
             risk_summary=synthesis.get("risk_summary", ""),
             price_assessment=synthesis.get("price_assessment", ""),
+            mcda=synthesis.get("mcda"),
             user_feedbacks=session.user_feedbacks,
             phase=DebatePhase.SYNTHESIZED,
         )

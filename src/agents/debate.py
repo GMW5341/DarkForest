@@ -19,6 +19,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from src.agents.base import BaseAnalystAgent
+from src.engine.mcda import (
+    MCDAResult,
+    extract_scores,
+    format_mcda_for_prompt,
+    weighted_sum,
+)
 from src.models.analysis import (
     AgentOpinion,
     DebateMessage,
@@ -79,6 +85,7 @@ class DebateOrchestrator:
     ):
         self.agents = agents
         self.synthesizer_client = synthesizer_client
+        self._opinions: list[AgentOpinion] = []  # Round 1 의견 보존 (MCDA용)
 
     # ── Step-by-Step API ──
 
@@ -110,6 +117,7 @@ class DebateOrchestrator:
             round_type="opening",
             messages=messages,
         )
+        self._opinions = opinions  # MCDA 점수 추출용 보존
         return round1, opinions
 
     async def run_round2(
@@ -168,8 +176,16 @@ class DebateOrchestrator:
         user_feedbacks: list[UserFeedback],
         user_final_comment: str = "",
     ) -> dict:
-        """전체 토론 + 사용자 피드백을 종합하여 최종 판정."""
+        """전체 토론 + MCDA 정량 분석 + 사용자 피드백 → 최종 판정."""
         full_history = self._format_debate_history(rounds)
+
+        # ── MCDA 정량 분석 ──
+        mcda_section = ""
+        mcda_result: MCDAResult | None = None
+        if self._opinions:
+            scores = extract_scores(self._opinions)
+            mcda_result = weighted_sum(scores)
+            mcda_section = format_mcda_for_prompt(mcda_result)
 
         # 사용자 피드백 히스토리 포맷
         feedback_section = ""
@@ -202,8 +218,10 @@ class DebateOrchestrator:
             f"평균 매수가: {holding.avg_price:,.0f} {holding.currency}\n"
             f"수익률: {holding.return_pct:+.2f}%\n\n"
             f"## 애널리스트 토론 전체 기록\n{full_history}"
+            f"{mcda_section}"
             f"{feedback_section}\n\n"
-            f"위 토론과 투자자 피드백을 종합하여 최종 투자 판정을 내려주세요.\n"
+            f"위 토론, MCDA 정량 분석, 투자자 피드백을 종합하여 최종 투자 판정을 내려주세요.\n"
+            f"MCDA 정량 점수를 기본 기준으로 삼되, 정성적 논의가 점수로 포착하지 못한 요인이 있다면 보정하세요.\n"
             f"반드시 JSON 형식으로 응답하세요."
         )
 
@@ -212,7 +230,13 @@ class DebateOrchestrator:
             user_message=prompt,
         )
 
-        return BaseAnalystAgent._safe_parse_json(response)
+        result = BaseAnalystAgent._safe_parse_json(response)
+
+        # MCDA 결과를 응답에 포함
+        if mcda_result:
+            result["mcda"] = mcda_result.to_dict()
+
+        return result
 
     # ── Convenience: 자동 모드 (기존 호환) ──
 

@@ -325,10 +325,18 @@
     </div>
 
     <script>
-        // ── State ──
-        let currentMode = 'stock'; // 'stock' | 'macro'
-        let sessionId = null;
-        let pendingAction = null;
+        // ── State (per-mode) ──
+        let currentMode = 'stock';
+        const modeState = {
+            stock: { sessionId: null, pendingAction: null, chatHTML: '', phaseDisplay: 'none', inputDisplay: 'none', inputHint: '' },
+            macro: { sessionId: null, pendingAction: null, chatHTML: '', phaseDisplay: 'none', inputDisplay: 'none', inputHint: '' },
+        };
+
+        // Computed shortcuts (always point to current mode)
+        function getSessionId() { return modeState[currentMode].sessionId; }
+        function setSessionId(v) { modeState[currentMode].sessionId = v; }
+        function getPendingAction() { return modeState[currentMode].pendingAction; }
+        function setPendingAction(v) { modeState[currentMode].pendingAction = v; }
 
         const AGENT_CLS = {
             '펀더멘털 애널리스트': 'agent-fundamental',
@@ -348,34 +356,50 @@
         function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
         function scrollBottom() { chat.scrollTop = chat.scrollHeight; }
 
-        // ── Mode switching ──
+        // ── Mode switching (state preserved) ──
         function switchMode(mode) {
-            if (sessionId) { if (!confirm('진행 중인 토론이 있습니다. 모드를 전환하시겠습니까?')) return; }
+            if (mode === currentMode) return;
+
+            // Save current mode state
+            const prev = modeState[currentMode];
+            // Collect dynamic chat messages (exclude setup panels)
+            const dynamicNodes = [...chat.children].filter(c => c.id !== 'welcomeMsg' && c.id !== 'stockSetup' && c.id !== 'macroSetup');
+            prev.chatHTML = dynamicNodes.map(n => n.outerHTML).join('');
+            prev.phaseDisplay = document.getElementById('phaseBar').style.display;
+            prev.inputDisplay = inputArea.style.display;
+            prev.inputHint = document.getElementById('inputHint').textContent;
+
+            // Clear dynamic nodes
+            dynamicNodes.forEach(n => n.remove());
+
+            // Switch
             currentMode = mode;
-            sessionId = null;
-            pendingAction = null;
 
             document.getElementById('tabStock').className = 'mode-tab' + (mode === 'stock' ? ' active' : '');
             document.getElementById('tabMacro').className = 'mode-tab' + (mode === 'macro' ? ' active' : '');
-
             document.getElementById('stockSetup').classList.toggle('hidden', mode !== 'stock');
             document.getElementById('macroSetup').classList.toggle('hidden', mode !== 'macro');
-            document.getElementById('phaseBar').style.display = 'none';
-            inputArea.style.display = 'none';
-
-            // Clear chat except welcome and setup panels
-            const children = [...chat.children];
-            for (const c of children) {
-                if (c.id !== 'welcomeMsg' && c.id !== 'stockSetup' && c.id !== 'macroSetup') c.remove();
-            }
 
             document.getElementById('welcomeMsg').textContent = mode === 'stock'
                 ? 'DarkForest — 3명의 AI 애널리스트가 토론하고, 당신이 매 라운드마다 대화로 조율합니다.'
                 : 'DarkForest — 3명의 매크로 전문가가 거시 경제 이슈를 토론하고, 당신이 대화로 조율합니다.';
 
-            // Reset buttons
-            document.getElementById('stockStartBtn').disabled = false;
-            document.getElementById('macroStartBtn').disabled = false;
+            // Restore new mode state
+            const next = modeState[mode];
+            if (next.chatHTML) {
+                const temp = document.createElement('div');
+                temp.innerHTML = next.chatHTML;
+                while (temp.firstChild) chat.appendChild(temp.firstChild);
+            }
+            document.getElementById('phaseBar').style.display = next.phaseDisplay;
+            inputArea.style.display = next.inputDisplay;
+            document.getElementById('inputHint').textContent = next.inputHint;
+
+            if (next.pendingAction) {
+                userInput.disabled = false; sendBtn.disabled = false;
+            }
+
+            scrollBottom();
         }
 
         function togglePanel(bodyId, arrowId) {
@@ -452,17 +476,67 @@
             inputArea.style.display = 'block';
             userInput.disabled = false; sendBtn.disabled = false;
             document.getElementById('inputHint').textContent = hint;
-            pendingAction = action; userInput.focus();
+            setPendingAction(action); userInput.focus();
         }
         function disableInput() { userInput.disabled = true; sendBtn.disabled = true; }
 
         async function sendFeedback() {
-            if (!pendingAction) return;
+            const action = getPendingAction();
+            if (!action) return;
             const text = userInput.value.trim();
             if (text) addUserMsg(text);
             userInput.value = ''; userInput.style.height = 'auto';
             disableInput();
-            await pendingAction(text);
+            await action(text);
+        }
+
+        // ── MCDA Chart ──
+        function addMCDAChart(mcda) {
+            const labels = {
+                business_quality: '사업 품질',
+                financial_health: '재무 건전성',
+                valuation: '밸류에이션',
+                growth: '성장성',
+                risk: '안전성',
+                catalyst: '촉매',
+                portfolio_fit: '포트폴리오 적합성',
+            };
+            const DECISION = { buy: 'BUY', wait: 'WAIT', pass: 'PASS', needs_more_data: 'HOLD' };
+            const scores = mcda.criteria_scores || {};
+            const ws = mcda.weighted_score || 0;
+            const decision = DECISION[mcda.decision] || mcda.decision;
+            const wsColor = ws >= 0.7 ? 'var(--green)' : ws >= 0.5 ? 'var(--yellow)' : 'var(--red)';
+
+            let barsHTML = '';
+            for (const [key, label] of Object.entries(labels)) {
+                const val = scores[key] || 0;
+                const pct = (val * 100).toFixed(0);
+                const color = val >= 0.7 ? 'var(--green)' : val >= 0.5 ? 'var(--yellow)' : 'var(--red)';
+                barsHTML += `
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin:0.3rem 0;">
+                        <span style="width:100px;font-size:0.8rem;text-align:right;color:var(--text-dim);">${label}</span>
+                        <div style="flex:1;height:14px;background:var(--surface-2);border-radius:3px;overflow:hidden;">
+                            <div style="width:${pct}%;height:100%;background:${color};border-radius:3px;transition:width 0.5s;"></div>
+                        </div>
+                        <span style="width:35px;font-size:0.75rem;color:var(--text-dim);">${pct}%</span>
+                    </div>`;
+            }
+
+            const d = document.createElement('div');
+            d.className = 'msg';
+            d.innerHTML = `
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;margin:0.5rem 0;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;">
+                        <span style="font-size:0.85rem;font-weight:600;">MCDA 정량 분석</span>
+                        <span style="font-size:0.75rem;color:var(--text-dim);">방법: ${esc(mcda.method || 'weighted_sum')}</span>
+                    </div>
+                    ${barsHTML}
+                    <div style="margin-top:0.8rem;padding-top:0.6rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:0.85rem;">종합 점수: <strong style="color:${wsColor}">${(ws * 100).toFixed(0)}점</strong>/100</span>
+                        <span class="badge badge-${mcda.decision}" style="font-size:0.8rem;padding:0.2rem 0.8rem;">정량 판정: ${decision}</span>
+                    </div>
+                </div>`;
+            chat.appendChild(d); scrollBottom();
         }
 
         // ── Stock Verdict ──
@@ -609,7 +683,7 @@
                 });
                 if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
                 const data = await res.json();
-                sessionId = data.session_id;
+                setSessionId(data.session_id);
                 removeLoading(); setPhase('round1_done');
                 if (data.error) throw new Error(data.error);
                 if (data.rounds?.length > 0) renderRoundMessages(data.rounds[0]);
@@ -620,7 +694,7 @@
         async function stockRound2(fb) {
             addLoading('Round 2: 상호 반론 진행 중...'); setPhase('round2_running');
             try {
-                const res = await fetch(`/api/debate/${sessionId}/round2`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
+                const res = await fetch(`/api/debate/${getSessionId()}/round2`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
                 if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
                 const data = await res.json(); removeLoading(); setPhase('round2_done');
                 if (data.error) throw new Error(data.error);
@@ -632,7 +706,7 @@
         async function stockRound3(fb) {
             addLoading('Round 3: 최종 입장 정리 중...'); setPhase('round3_running');
             try {
-                const res = await fetch(`/api/debate/${sessionId}/round3`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
+                const res = await fetch(`/api/debate/${getSessionId()}/round3`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
                 if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
                 const data = await res.json(); removeLoading(); setPhase('round3_done');
                 if (data.error) throw new Error(data.error);
@@ -644,12 +718,15 @@
         async function stockSynthesize(fb) {
             addLoading('투자위원회 최종 판정 중...');
             try {
-                const res = await fetch(`/api/debate/${sessionId}/synthesize`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
+                const res = await fetch(`/api/debate/${getSessionId()}/synthesize`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
                 if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
                 const data = await res.json(); removeLoading(); setPhase('synthesized');
                 if (data.error) throw new Error(data.error);
-                if (data.result) addStockVerdict(data.result);
-                inputArea.style.display = 'none'; pendingAction = null;
+                if (data.result) {
+                    if (data.result.mcda) addMCDAChart(data.result.mcda);
+                    addStockVerdict(data.result);
+                }
+                inputArea.style.display = 'none'; setPendingAction(null);
                 document.getElementById('stockStartBtn').disabled = false;
                 addSystemMsg('토론이 종료되었습니다.');
             } catch(e) { removeLoading(); addError(e.message); }
@@ -682,7 +759,7 @@
                 });
                 if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
                 const data = await res.json();
-                sessionId = data.session_id;
+                setSessionId(data.session_id);
                 removeLoading(); setPhase('round1_done');
                 if (data.error) throw new Error(data.error);
                 if (data.rounds?.length > 0) renderRoundMessages(data.rounds[0]);
@@ -693,7 +770,7 @@
         async function macroRound2(fb) {
             addLoading('Round 2: 상호 반론 진행 중...'); setPhase('round2_running');
             try {
-                const res = await fetch(`/api/macro/${sessionId}/round2`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
+                const res = await fetch(`/api/macro/${getSessionId()}/round2`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
                 if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
                 const data = await res.json(); removeLoading(); setPhase('round2_done');
                 if (data.error) throw new Error(data.error);
@@ -705,7 +782,7 @@
         async function macroRound3(fb) {
             addLoading('Round 3: 최종 입장 정리 중...'); setPhase('round3_running');
             try {
-                const res = await fetch(`/api/macro/${sessionId}/round3`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
+                const res = await fetch(`/api/macro/${getSessionId()}/round3`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
                 if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
                 const data = await res.json(); removeLoading(); setPhase('round3_done');
                 if (data.error) throw new Error(data.error);
@@ -717,12 +794,12 @@
         async function macroSynthesize(fb) {
             addLoading('전략 회의 최종 권고 종합 중...');
             try {
-                const res = await fetch(`/api/macro/${sessionId}/synthesize`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
+                const res = await fetch(`/api/macro/${getSessionId()}/synthesize`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:fb||''}) });
                 if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
                 const data = await res.json(); removeLoading(); setPhase('synthesized');
                 if (data.error) throw new Error(data.error);
                 if (data.result) addMacroVerdict(data.result);
-                inputArea.style.display = 'none'; pendingAction = null;
+                inputArea.style.display = 'none'; setPendingAction(null);
                 document.getElementById('macroStartBtn').disabled = false;
                 addSystemMsg('토론이 종료되었습니다.');
             } catch(e) { removeLoading(); addError(e.message); }

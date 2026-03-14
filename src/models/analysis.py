@@ -96,6 +96,10 @@ class DebateResult(BaseModel):
     )
     risk_summary: str = Field(default="", description="핵심 리스크 요약")
     price_assessment: str = Field(default="", description="적정가 평가")
+    mcda: dict | None = Field(
+        default=None,
+        description="MCDA 정량 분석 결과 (criteria_scores, weighted_score, decision 등)",
+    )
     user_feedbacks: list[UserFeedback] = Field(
         default_factory=list,
         description="사용자가 라운드 사이에 제공한 피드백 기록",

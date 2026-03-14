@@ -202,14 +202,18 @@ class BaseAnalystAgent(ABC):
         """JSON 파싱. 실패 시 빈 dict + 원본 보존."""
         # Try to extract JSON from markdown code blocks
         clean = text.strip()
-        if "```json" in clean:
-            start = clean.index("```json") + 7
-            end = clean.index("```", start)
-            clean = clean[start:end].strip()
-        elif "```" in clean:
-            start = clean.index("```") + 3
-            end = clean.index("```", start)
-            clean = clean[start:end].strip()
+        try:
+            if "```json" in clean:
+                start = clean.index("```json") + 7
+                end = clean.index("```", start)
+                clean = clean[start:end].strip()
+            elif "```" in clean:
+                start = clean.index("```") + 3
+                end = clean.index("```", start)
+                clean = clean[start:end].strip()
+        except ValueError:
+            # 닫는 ``` 가 없는 경우 — 무시하고 원본으로 진행
+            pass
 
         try:
             return json.loads(clean)
