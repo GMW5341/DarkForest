@@ -237,6 +237,25 @@
         .alloc-bar { flex: 1; height: 14px; background: var(--surface); border-radius: 3px; overflow: hidden; }
         .alloc-fill { height: 100%; background: var(--cyan); border-radius: 3px; }
         .alloc-pct { width: 40px; font-size: 0.75rem; }
+
+        /* Market data ticker */
+        .market-ticker {
+            background: var(--surface); border-bottom: 1px solid var(--border);
+            padding: 0.3rem 1rem; overflow: hidden; font-size: 0.72rem; color: var(--text-dim);
+            display: none; white-space: nowrap;
+        }
+        .market-ticker .ticker-inner {
+            display: flex; gap: 1.5rem; align-items: center; flex-wrap: nowrap;
+            overflow-x: auto; scrollbar-width: none;
+        }
+        .market-ticker .ticker-inner::-webkit-scrollbar { display: none; }
+        .market-ticker .ticker-item { display: flex; gap: 0.3rem; align-items: center; flex-shrink: 0; }
+        .market-ticker .ticker-name { color: var(--text-dim); }
+        .market-ticker .ticker-val { color: var(--text); font-weight: 600; }
+        .market-ticker .ticker-chg { font-size: 0.68rem; }
+        .market-ticker .up { color: var(--red); }
+        .market-ticker .down { color: #2196f3; }
+        .market-ticker .ticker-src { margin-left: auto; font-size: 0.65rem; color: var(--text-dim); opacity: 0.5; flex-shrink: 0; }
     </style>
 </head>
 <body>
@@ -256,6 +275,11 @@
     <div class="mode-tabs">
         <button class="mode-tab active" id="tabStock" onclick="switchMode('stock')">종목 분석</button>
         <button class="mode-tab" id="tabMacro" onclick="switchMode('macro')">거시 경제 토론</button>
+    </div>
+
+    <!-- Market Ticker -->
+    <div class="market-ticker" id="marketTicker">
+        <div class="ticker-inner" id="tickerInner"></div>
     </div>
 
     <!-- Phase Bar -->
@@ -806,7 +830,8 @@
 
             const portfolio = { name: 'Analysis', holdings: [holding] };
             addSystemMsg(`${holding.name} (${holding.ticker}) 토론을 시작합니다.`);
-            addLoading('Round 1: 애널리스트들이 독립 분석 중...');
+            addSystemMsg('실시간 시장 데이터를 수집하여 분석에 반영합니다.');
+            addLoading('Round 1: 시장 데이터 수집 + 애널리스트 독립 분석 중...');
             setPhase('round1_running');
 
             try {
@@ -882,7 +907,8 @@
             const context = document.getElementById('mContext').value.trim();
             addSystemMsg(`거시 토론 주제: "${topic}"`);
             if (context) addSystemMsg('배경 정보가 분석에 반영됩니다.');
-            addLoading('Round 1: 매크로 전문가들이 독립 분석 중...');
+            addSystemMsg('실시간 시장 데이터(지수, 환율, 원자재)를 수집하여 분석에 반영합니다.');
+            addLoading('Round 1: 시장 데이터 수집 + 매크로 전문가 독립 분석 중...');
             setPhase('round1_running');
 
             try {
@@ -937,6 +963,51 @@
                 addSystemMsg('토론이 종료되었습니다.');
             } catch(e) { removeLoading(); addError(e.message); }
         }
+
+        // ── Market Data Ticker ──
+        async function loadMarketData() {
+            try {
+                const res = await fetch('/api/market-data');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data.has_data) return;
+
+                const ticker = document.getElementById('marketTicker');
+                const inner = document.getElementById('tickerInner');
+                inner.innerHTML = '';
+
+                const items = [
+                    ...(data.indices || []).map(i => ({name: i.name, val: i.value, chg: i.change, pct: i.change_pct, dec: 2})),
+                    ...(data.exchange_rates || []).map(f => ({name: f.name, val: f.value, chg: f.change, pct: f.change_pct, dec: 2})),
+                ];
+
+                for (const item of items) {
+                    const sign = item.chg >= 0 ? '+' : '';
+                    const cls = item.chg >= 0 ? 'up' : 'down';
+                    const el = document.createElement('span');
+                    el.className = 'ticker-item';
+                    el.innerHTML = `
+                        <span class="ticker-name">${esc(item.name)}</span>
+                        <span class="ticker-val">${item.val.toLocaleString(undefined, {minimumFractionDigits: item.dec, maximumFractionDigits: item.dec})}</span>
+                        <span class="ticker-chg ${cls}">${sign}${item.pct.toFixed(2)}%</span>
+                    `;
+                    inner.appendChild(el);
+                }
+
+                if (data.timestamp) {
+                    const src = document.createElement('span');
+                    src.className = 'ticker-src';
+                    src.textContent = data.timestamp;
+                    inner.appendChild(src);
+                }
+
+                ticker.style.display = 'block';
+            } catch(e) { /* ignore */ }
+        }
+
+        // 시장 데이터 로드 (페이지 로드 시 + 5분마다 갱신)
+        loadMarketData();
+        setInterval(loadMarketData, 300000);
 
         // ── Input handlers ──
         userInput.addEventListener('keydown', (e) => {

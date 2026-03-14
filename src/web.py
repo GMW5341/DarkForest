@@ -40,6 +40,7 @@ from src.models.macro import (
     MacroMessageModel,
     MacroTopic,
 )
+from src.data.market_data import fetch_macro_market_data, fetch_market_snapshot
 from src.models.portfolio import Holding, Portfolio
 
 
@@ -65,6 +66,7 @@ class DebateSession(BaseModel):
     error: str | None = None
     api_key: str = ""
     model: str = "claude-sonnet-4-20250514"
+    market_context: str = Field(default="", description="실시간 시장 데이터 컨텍스트")
 
 
 _jobs: dict[str, AnalysisJob] = {}
@@ -191,13 +193,31 @@ async def debate_start(req: DebateStartRequest):
     if not api_key:
         raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY가 필요합니다.")
 
+    # 실시간 시장 데이터 수집
+    market_context = ""
+    try:
+        snapshot = await fetch_market_snapshot(
+            ticker=req.holding.ticker,
+            ticker_name=req.holding.name,
+        )
+        market_context = snapshot.to_context_text()
+    except Exception:
+        pass  # 시장 데이터 실패 시 무시
+
+    # 시장 데이터를 holding의 financial_data에 추가
+    holding = req.holding.model_copy()
+    if market_context:
+        existing = holding.financial_data or ""
+        holding.financial_data = existing + "\n" + market_context if existing else market_context
+
     session_id = str(uuid.uuid4())[:8]
     session = DebateSession(
         session_id=session_id,
-        holding=req.holding,
+        holding=holding,
         portfolio=req.portfolio,
         api_key=api_key,
         model=req.model,
+        market_context=market_context,
     )
 
     try:
@@ -378,12 +398,14 @@ class MacroDebateSession:
         context: str,
         api_key: str,
         model: str,
+        market_context: str = "",
     ):
         self.session_id = session_id
         self.topic = topic
         self.context = context
         self.api_key = api_key
         self.model = model
+        self.market_context = market_context
         self.phase = "waiting_start"
         self.rounds: list[MacroDebateRound] = []
         self.opinions: list[MacroAgentOpinion] = []
@@ -459,8 +481,18 @@ async def macro_start(req: MacroStartRequest):
     if not api_key:
         raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY가 필요합니다.")
 
+    # 실시간 시장 데이터 수집
+    market_context = ""
+    try:
+        snapshot = await fetch_macro_market_data(include_commodities=True)
+        market_context = snapshot.to_context_text()
+    except Exception:
+        pass
+
     # 과거 토론 인사이트 주입
     context = req.topic.context
+    if market_context:
+        context += "\n" + market_context
     if req.include_past_insights and _debate_history_store:
         past_lines = ["\n\n## 과거 토론 인사이트 (참고용)"]
         for h in _debate_history_store[-5:]:  # 최근 5개만
@@ -477,6 +509,7 @@ async def macro_start(req: MacroStartRequest):
         context=context,
         api_key=api_key,
         model=req.model,
+        market_context=market_context,
     )
 
     try:
@@ -669,6 +702,26 @@ async def macro_get_history(session_id: str):
 async def list_debate_histories():
     """과거 토론 기록 목록 조회."""
     return {"histories": _debate_history_store}
+
+
+@app.get("/api/market-data")
+async def get_market_data(ticker: str | None = None, name: str | None = None):
+    """실시간 시장 데이터 조회."""
+    try:
+        snapshot = await fetch_market_snapshot(
+            ticker=ticker, ticker_name=name,
+            include_commodities=True,
+        )
+        return {
+            "timestamp": snapshot.timestamp,
+            "indices": [{"name": i.name, "value": i.value, "change": i.change, "change_pct": i.change_pct} for i in snapshot.indices],
+            "exchange_rates": [{"name": f.name, "value": f.value, "change": f.change, "change_pct": f.change_pct} for f in snapshot.exchange_rates],
+            "quotes": [{"ticker": q.ticker, "name": q.name, "price": q.price, "change": q.change, "change_pct": q.change_pct} for q in snapshot.quotes],
+            "news": [{"title": n.title, "source": n.source} for n in snapshot.news],
+            "has_data": snapshot.has_data,
+        }
+    except Exception as e:
+        return {"error": str(e), "has_data": False}
 
 
 # ── 기타 ──
