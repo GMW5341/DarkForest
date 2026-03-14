@@ -1,7 +1,8 @@
 """
-Persistent debate history storage using JSON files.
+Persistent debate history & document storage using JSON files.
 
-각 토론 결과를 JSON 파일로 영구 저장하고 조회/검색 기능을 제공한다.
+각 토론 결과와 업로드 문서를 JSON 파일로 영구 저장하고
+피드백 루프를 통해 이후 토론에 반영한다.
 """
 
 from __future__ import annotations
@@ -94,8 +95,104 @@ class DebateHistoryStore:
         ]
 
 
-# 싱글턴 인스턴스
+# ── 문서 저장소 (영구) ──
+
+_DEFAULT_DOC_DIR = Path("data/documents")
+
+
+class DocumentStore:
+    """업로드 문서 영구 저장소. 누적되는 지식 베이스 역할."""
+
+    def __init__(self, directory: str | Path | None = None):
+        self.directory = Path(directory) if directory else _DEFAULT_DOC_DIR
+        _ensure_dir(self.directory)
+        self._index_path = self.directory / "_index.json"
+
+    def _load_index(self) -> list[dict[str, Any]]:
+        if self._index_path.exists():
+            try:
+                return json.loads(self._index_path.read_text(encoding="utf-8"))
+            except Exception:
+                return []
+        return []
+
+    def _save_index(self, index: list[dict[str, Any]]) -> None:
+        self._index_path.write_text(
+            json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    def add(self, filename: str, text: str) -> dict[str, Any]:
+        """문서 추가. 텍스트와 메타데이터를 영구 저장."""
+        doc_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + "_" + filename.replace(" ", "_")
+        doc_path = self.directory / f"{doc_id}.txt"
+        doc_path.write_text(text, encoding="utf-8")
+
+        entry = {
+            "doc_id": doc_id,
+            "filename": filename,
+            "text_length": len(text),
+            "added_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        index = self._load_index()
+        index.append(entry)
+        self._save_index(index)
+
+        logger.info(f"Document saved: {doc_path} ({len(text)} chars)")
+        return entry
+
+    def list_all(self) -> list[dict[str, Any]]:
+        """저장된 모든 문서 목록."""
+        return self._load_index()
+
+    def load_text(self, doc_id: str) -> str | None:
+        """문서 텍스트 로드."""
+        doc_path = self.directory / f"{doc_id}.txt"
+        if doc_path.exists():
+            return doc_path.read_text(encoding="utf-8")
+        return None
+
+    def delete(self, doc_id: str) -> bool:
+        """문서 삭제."""
+        doc_path = self.directory / f"{doc_id}.txt"
+        if doc_path.exists():
+            doc_path.unlink()
+        index = self._load_index()
+        new_index = [e for e in index if e["doc_id"] != doc_id]
+        if len(new_index) < len(index):
+            self._save_index(new_index)
+            return True
+        return False
+
+    def get_all_context(self, max_chars_per_doc: int = 8000) -> str:
+        """
+        모든 저장 문서의 텍스트를 에이전트 컨텍스트 문자열로 반환.
+        누적된 전체 지식 베이스.
+        """
+        index = self._load_index()
+        if not index:
+            return ""
+
+        lines = ["\n\n## 참고 자료 (누적 문서 베이스)"]
+        lines.append(f"(총 {len(index)}건의 문서가 등록되어 있습니다)\n")
+
+        for i, entry in enumerate(index, 1):
+            text = self.load_text(entry["doc_id"])
+            if not text:
+                continue
+            lines.append(f"### 문서 {i}: {entry['filename']}")
+            if len(text) > max_chars_per_doc:
+                text = text[:max_chars_per_doc] + f"\n\n... (총 {len(text):,}자 중 {max_chars_per_doc:,}자까지 포함)"
+            lines.append(text)
+            lines.append("")
+
+        return "\n".join(lines) if len(lines) > 2 else ""
+
+
+# ── 싱글턴 인스턴스 ──
+
 _store: DebateHistoryStore | None = None
+_doc_store: DocumentStore | None = None
 
 
 def get_history_store() -> DebateHistoryStore:
@@ -104,3 +201,11 @@ def get_history_store() -> DebateHistoryStore:
     if _store is None:
         _store = DebateHistoryStore()
     return _store
+
+
+def get_document_store() -> DocumentStore:
+    """글로벌 문서 스토어 인스턴스."""
+    global _doc_store
+    if _doc_store is None:
+        _doc_store = DocumentStore()
+    return _doc_store

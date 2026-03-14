@@ -402,13 +402,14 @@
                         <textarea id="hReports" placeholder="증권사 리포트, 뉴스 등 텍스트로 붙여넣기..."></textarea>
                     </div>
                     <div class="setup-wide">
-                        <label>PDF/문서 업로드 (선택)</label>
+                        <label>PDF/문서 업로드 (영구 지식 베이스에 누적 저장됨)</label>
                         <div class="upload-area" id="stockUploadArea" onclick="document.getElementById('stockFileInput').click()">
                             <input type="file" id="stockFileInput" accept=".pdf,.txt,.csv,.md,.json" multiple>
                             <div class="upload-label">파일을 드래그하거나 <span>클릭하여 선택</span> (PDF, TXT, CSV)</div>
                         </div>
                         <div class="uploaded-files" id="stockUploadedFiles"></div>
                     </div>
+                    <div class="setup-wide" id="stockDocList"></div>
                 </div>
                 <div class="setup-actions">
                     <button class="btn-example" onclick="loadStockExample()">예시 불러오기</button>
@@ -434,13 +435,14 @@
                         <textarea id="mContext" style="min-height:120px;" placeholder="관련 뉴스, 통계, 보고서 등을 자유롭게 붙여넣으세요.&#10;&#10;예시:&#10;- 사모대출 펀드 A사 환매 중단 (2025.12)&#10;- 관련 펀드 총 규모 약 3조원, 환매 요청 1.2조원&#10;- 금감원 실태 조사 착수&#10;- 연쇄 환매 우려로 채권 시장 변동성 확대"></textarea>
                     </div>
                     <div class="setup-wide">
-                        <label>PDF/문서 업로드 (선택)</label>
+                        <label>PDF/문서 업로드 (영구 지식 베이스에 누적 저장됨)</label>
                         <div class="upload-area" id="macroUploadArea" onclick="document.getElementById('macroFileInput').click()">
                             <input type="file" id="macroFileInput" accept=".pdf,.txt,.csv,.md,.json" multiple>
                             <div class="upload-label">파일을 드래그하거나 <span>클릭하여 선택</span> (PDF, TXT, CSV)</div>
                         </div>
                         <div class="uploaded-files" id="macroUploadedFiles"></div>
                     </div>
+                    <div class="setup-wide" id="macroDocList"></div>
                 </div>
                 <div class="setup-actions">
                     <button class="btn-example" onclick="loadMacroExample()">예시 불러오기</button>
@@ -1277,25 +1279,63 @@
                 listEl.appendChild(item);
 
                 try {
-                    const res = await fetch('/api/upload/document?scope=global', { method: 'POST', body: formData });
+                    const res = await fetch('/api/upload/document', { method: 'POST', body: formData });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.detail || 'Upload failed');
 
                     const sizeKB = (data.text_length / 1024).toFixed(1);
                     item.innerHTML = `
                         <span class="uf-name">${esc(file.name)}</span>
-                        <span class="uf-size">${sizeKB}KB 텍스트 추출됨</span>
-                        <button class="uf-remove" onclick="this.parentElement.remove()">✕</button>
+                        <span class="uf-size">${sizeKB}KB 추출 · 영구 저장됨</span>
                     `;
+                    // 문서 목록 갱신
+                    refreshDocumentList();
                 } catch (e) {
                     item.innerHTML = `<span class="uf-name">${esc(file.name)}</span><span class="uf-size" style="color:var(--red)">실패: ${esc(e.message)}</span>`;
                 }
             }
         }
 
+        // 영구 저장된 문서 목록 표시
+        async function refreshDocumentList() {
+            try {
+                const res = await fetch('/api/upload/documents');
+                const data = await res.json();
+                const docs = data.documents || [];
+
+                const html = docs.length === 0 ? '' : `
+                    <label style="font-size:0.75rem;color:var(--text-dim)">등록된 문서 (${docs.length}건 — 모든 토론에 자동 반영)</label>
+                    ${docs.map(d => `
+                        <div class="uploaded-file">
+                            <span class="uf-name">${esc(d.filename)}</span>
+                            <span class="uf-size">${(d.text_length / 1024).toFixed(1)}KB · ${d.added_at ? new Date(d.added_at).toLocaleDateString('ko-KR') : ''}</span>
+                            <button class="uf-remove" onclick="deleteDocument('${esc(d.doc_id)}')">✕</button>
+                        </div>
+                    `).join('')}
+                `;
+
+                // 두 패널 모두 동일한 목록 표시
+                const stockList = document.getElementById('stockDocList');
+                const macroList = document.getElementById('macroDocList');
+                if (stockList) stockList.innerHTML = html;
+                if (macroList) macroList.innerHTML = html;
+            } catch(e) { /* ignore */ }
+        }
+
+        async function deleteDocument(docId) {
+            if (!confirm('이 문서를 지식 베이스에서 삭제하시겠습니까?')) return;
+            try {
+                await fetch(`/api/upload/documents/${docId}`, { method: 'DELETE' });
+                refreshDocumentList();
+            } catch(e) { alert('삭제 실패'); }
+        }
+
         // Initialize file upload areas
         setupFileUpload('stockUploadArea', 'stockFileInput', 'stockUploadedFiles');
         setupFileUpload('macroUploadArea', 'macroFileInput', 'macroUploadedFiles');
+
+        // 페이지 로드 시 기존 문서 목록 표시
+        refreshDocumentList();
     </script>
 </body>
 </html>
