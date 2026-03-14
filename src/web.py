@@ -12,7 +12,7 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -40,7 +40,9 @@ from src.models.macro import (
     MacroMessageModel,
     MacroTopic,
 )
+from src.data.history import get_history_store
 from src.data.market_data import fetch_macro_market_data, fetch_market_snapshot
+from src.data.pdf_extractor import extract_text_from_file
 from src.models.portfolio import Holding, Portfolio
 
 
@@ -204,13 +206,18 @@ async def debate_start(req: DebateStartRequest):
     except Exception:
         pass  # 시장 데이터 실패 시 무시
 
-    # 시장 데이터를 holding의 financial_data에 추가
+    # 시장 데이터 + 업로드 문서를 holding의 financial_data에 추가
     holding = req.holding.model_copy()
-    if market_context:
-        existing = holding.financial_data or ""
-        holding.financial_data = existing + "\n" + market_context if existing else market_context
-
     session_id = str(uuid.uuid4())[:8]
+    extra_context = ""
+    if market_context:
+        extra_context += market_context
+    doc_context = _get_uploaded_context(session_id)
+    if doc_context:
+        extra_context += doc_context
+    if extra_context:
+        existing = holding.financial_data or ""
+        holding.financial_data = existing + "\n" + extra_context if existing else extra_context
     session = DebateSession(
         session_id=session_id,
         holding=holding,
@@ -350,15 +357,33 @@ async def debate_synthesize(session_id: str, feedback: FeedbackRequest | None = 
         )
         session.phase = DebatePhase.SYNTHESIZED
 
-        # 토론 이력 저장 (피드백 루프용)
-        _debate_history_store.append({
+        # 토론 이력 저장 (영구 저장)
+        history_record = {
             "session_id": session_id,
             "mode": "stock",
             "topic": f"{session.holding.name} ({session.holding.ticker})",
             "overall_stance": synthesis.get("final_decision", ""),
             "executive_summary": synthesis.get("final_reasoning", ""),
             "key_insights": synthesis.get("consensus_points", []),
-        })
+            "dissent_points": synthesis.get("dissent_points", []),
+            "confidence": synthesis.get("final_confidence", 0.5),
+            "action_items": synthesis.get("action_items", []),
+            "risk_summary": synthesis.get("risk_summary", ""),
+            "round_count": len(session.rounds),
+            "user_feedbacks": [fb.content for fb in session.user_feedbacks],
+            "rounds_summary": [
+                {
+                    "round_number": r.round_number,
+                    "messages": [
+                        {"agent": m.agent_name, "stance": m.stance, "content": m.content[:300]}
+                        for m in r.messages
+                    ],
+                }
+                for r in session.rounds
+            ],
+        }
+        _debate_history_store.append(history_record)
+        get_history_store().save(session_id, history_record)
     except Exception as e:
         session.error = str(e)
 
@@ -489,20 +514,26 @@ async def macro_start(req: MacroStartRequest):
     except Exception:
         pass
 
-    # 과거 토론 인사이트 주입
+    # 과거 토론 인사이트 + 업로드 문서 주입
+    session_id = str(uuid.uuid4())[:8]
     context = req.topic.context
     if market_context:
         context += "\n" + market_context
-    if req.include_past_insights and _debate_history_store:
-        past_lines = ["\n\n## 과거 토론 인사이트 (참고용)"]
-        for h in _debate_history_store[-5:]:  # 최근 5개만
-            past_lines.append(
-                f"- [{h['mode'].upper()}] {h['topic']}: {h.get('overall_stance', '?')} "
-                f"— {h.get('executive_summary', '')[:100]}"
-            )
-        context += "\n".join(past_lines)
+    doc_context = _get_uploaded_context()
+    if doc_context:
+        context += doc_context
+    if req.include_past_insights:
+        # 영구 저장소에서 과거 인사이트 로드
+        past_insights = get_history_store().get_recent_insights(limit=5)
+        if past_insights:
+            past_lines = ["\n\n## 과거 토론 인사이트 (참고용)"]
+            for h in past_insights:
+                past_lines.append(
+                    f"- [{h['mode'].upper()}] {h['topic']}: {h.get('overall_stance', '?')} "
+                    f"— {h.get('executive_summary', '')[:100]}"
+                )
+            context += "\n".join(past_lines)
 
-    session_id = str(uuid.uuid4())[:8]
     session = MacroDebateSession(
         session_id=session_id,
         topic=req.topic.title,
@@ -659,15 +690,35 @@ async def macro_synthesize(session_id: str, feedback: FeedbackRequest | None = N
         session.result = synthesis
         session.phase = "synthesized"
 
-        # 토론 이력 저장 (피드백 루프용)
-        _debate_history_store.append({
+        # 토론 이력 저장 (영구 저장)
+        history_record = {
             "session_id": session.session_id,
             "mode": "macro",
             "topic": session.topic,
             "overall_stance": synthesis.get("overall_stance", ""),
             "executive_summary": synthesis.get("executive_summary", ""),
             "key_insights": synthesis.get("consensus_points", []),
-        })
+            "dissent_points": synthesis.get("dissent_points", []),
+            "confidence": synthesis.get("confidence", 0.5),
+            "investment_implications": synthesis.get("investment_implications", []),
+            "risk_scenarios": synthesis.get("risk_scenarios", []),
+            "action_items": synthesis.get("action_items", []),
+            "monitoring_points": synthesis.get("monitoring_points", []),
+            "round_count": len(session.rounds),
+            "user_feedbacks": [fb.content for fb in session.user_feedbacks],
+            "rounds_summary": [
+                {
+                    "round_number": r.round_number,
+                    "messages": [
+                        {"agent": m.agent_name, "stance": m.stance, "content": m.content[:300]}
+                        for m in r.messages
+                    ],
+                }
+                for r in session.rounds
+            ],
+        }
+        _debate_history_store.append(history_record)
+        get_history_store().save(session.session_id, history_record)
     except Exception as e:
         session.error = str(e)
         result = None
@@ -700,8 +751,121 @@ async def macro_get_history(session_id: str):
 
 @app.get("/api/debate-histories")
 async def list_debate_histories():
-    """과거 토론 기록 목록 조회."""
-    return {"histories": _debate_history_store}
+    """과거 토론 기록 목록 조회 (영구 저장소)."""
+    store = get_history_store()
+    histories = store.list_all(limit=50)
+    return {"histories": histories}
+
+
+@app.get("/api/debate-histories/{session_id}")
+async def get_debate_history(session_id: str):
+    """특정 토론 기록 상세 조회."""
+    record = get_history_store().load(session_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="토론 기록을 찾을 수 없습니다.")
+    return record
+
+
+@app.delete("/api/debate-histories/{session_id}")
+async def delete_debate_history(session_id: str):
+    """토론 기록 삭제."""
+    if get_history_store().delete(session_id):
+        return {"deleted": True}
+    raise HTTPException(status_code=404, detail="토론 기록을 찾을 수 없습니다.")
+
+
+# ── PDF/파일 업로드 ──
+
+# 세션별 업로드된 문서 텍스트 저장
+_uploaded_documents: dict[str, list[dict[str, str]]] = {}  # session_id → [{"filename": ..., "text": ...}]
+_global_documents: list[dict[str, str]] = []  # 전체 세션에 적용되는 문서
+
+
+@app.post("/api/upload/document")
+async def upload_document(file: UploadFile = File(...), scope: str = "global"):
+    """
+    PDF/TXT/CSV 파일을 업로드하여 에이전트 컨텍스트에 반영.
+
+    - scope=global: 이후 모든 토론에 자동 반영
+    - scope=session_id: 특정 세션에만 반영
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="파일명이 없습니다.")
+
+    content = await file.read()
+    max_size = 10 * 1024 * 1024  # 10MB
+    if len(content) > max_size:
+        raise HTTPException(status_code=400, detail="파일 크기는 10MB 이하여야 합니다.")
+
+    try:
+        extracted = extract_text_from_file(content, file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    doc = {"filename": file.filename, "text": extracted}
+
+    if scope == "global":
+        _global_documents.append(doc)
+    else:
+        _uploaded_documents.setdefault(scope, []).append(doc)
+
+    return {
+        "filename": file.filename,
+        "scope": scope,
+        "text_length": len(extracted),
+        "preview": extracted[:500] + "..." if len(extracted) > 500 else extracted,
+    }
+
+
+@app.get("/api/upload/documents")
+async def list_uploaded_documents():
+    """업로드된 문서 목록 조회."""
+    docs = []
+    for doc in _global_documents:
+        docs.append({
+            "filename": doc["filename"],
+            "scope": "global",
+            "text_length": len(doc["text"]),
+        })
+    for sid, session_docs in _uploaded_documents.items():
+        for doc in session_docs:
+            docs.append({
+                "filename": doc["filename"],
+                "scope": sid,
+                "text_length": len(doc["text"]),
+            })
+    return {"documents": docs}
+
+
+@app.delete("/api/upload/documents")
+async def clear_uploaded_documents():
+    """업로드된 모든 문서 삭제."""
+    _global_documents.clear()
+    _uploaded_documents.clear()
+    return {"cleared": True}
+
+
+def _get_uploaded_context(session_id: str | None = None) -> str:
+    """업로드된 문서들의 텍스트를 에이전트 컨텍스트 문자열로 반환."""
+    docs = list(_global_documents)
+    if session_id and session_id in _uploaded_documents:
+        docs.extend(_uploaded_documents[session_id])
+
+    if not docs:
+        return ""
+
+    lines = ["\n\n## 참고 자료 (업로드 문서)"]
+    for i, doc in enumerate(docs, 1):
+        lines.append(f"\n### 문서 {i}: {doc['filename']}")
+        # 토큰 제한을 위해 문서 당 최대 8000자
+        text = doc["text"]
+        if len(text) > 8000:
+            text = text[:8000] + f"\n\n... (총 {len(doc['text']):,}자 중 8,000자까지 포함)"
+        lines.append(text)
+
+    return "\n".join(lines)
 
 
 @app.get("/api/market-data")

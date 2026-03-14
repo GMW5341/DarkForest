@@ -246,9 +246,15 @@
         }
         .market-ticker .ticker-inner {
             display: flex; gap: 1.5rem; align-items: center; flex-wrap: nowrap;
-            overflow-x: auto; scrollbar-width: none;
+            overflow-x: hidden; scrollbar-width: none;
+            animation: ticker-scroll 60s linear infinite;
         }
         .market-ticker .ticker-inner::-webkit-scrollbar { display: none; }
+        .market-ticker:hover .ticker-inner { animation-play-state: paused; }
+        @keyframes ticker-scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
         .market-ticker .ticker-item { display: flex; gap: 0.3rem; align-items: center; flex-shrink: 0; }
         .market-ticker .ticker-name { color: var(--text-dim); }
         .market-ticker .ticker-val { color: var(--text); font-weight: 600; }
@@ -256,6 +262,65 @@
         .market-ticker .up { color: var(--red); }
         .market-ticker .down { color: #2196f3; }
         .market-ticker .ticker-src { margin-left: auto; font-size: 0.65rem; color: var(--text-dim); opacity: 0.5; flex-shrink: 0; }
+
+        /* History panel */
+        .history-panel { display: none; flex: 1; overflow-y: auto; padding: 1rem 1.5rem; }
+        .history-panel.visible { display: block; }
+        .history-list { display: flex; flex-direction: column; gap: 0.6rem; }
+        .history-card {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+            padding: 0.8rem 1rem; cursor: pointer; transition: border-color 0.2s;
+        }
+        .history-card:hover { border-color: var(--accent); }
+        .history-card .hc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; }
+        .history-card .hc-mode {
+            font-size: 0.65rem; padding: 0.15rem 0.5rem; border-radius: 10px;
+            font-weight: 600; text-transform: uppercase;
+        }
+        .history-card .hc-mode.stock { background: rgba(76,175,80,0.15); color: var(--green); }
+        .history-card .hc-mode.macro { background: rgba(224,64,251,0.15); color: var(--magenta); }
+        .history-card .hc-date { font-size: 0.7rem; color: var(--text-dim); }
+        .history-card .hc-topic { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.3rem; }
+        .history-card .hc-stance {
+            font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 4px;
+            display: inline-block; margin-bottom: 0.3rem;
+        }
+        .history-card .hc-summary { font-size: 0.78rem; color: var(--text-dim); line-height: 1.5; }
+        .history-card .hc-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+        .history-card .hc-actions button {
+            background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px;
+            color: var(--text-dim); font-size: 0.7rem; padding: 0.2rem 0.5rem; cursor: pointer;
+        }
+        .history-card .hc-actions button:hover { color: var(--text); border-color: var(--accent); }
+        .history-card .hc-actions button.delete:hover { color: var(--red); border-color: var(--red); }
+        .history-empty { text-align: center; color: var(--text-dim); padding: 3rem; font-size: 0.85rem; }
+        .history-detail { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.2rem; }
+        .history-detail h3 { margin-bottom: 0.5rem; }
+        .history-detail .hd-section { margin: 0.8rem 0; }
+        .history-detail .hd-section h4 { font-size: 0.8rem; color: var(--accent); margin-bottom: 0.3rem; }
+        .history-detail .hd-back { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 0.3rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin-bottom: 0.8rem; }
+        .history-detail .hd-back:hover { color: var(--text); }
+
+        /* File upload area */
+        .upload-area {
+            border: 2px dashed var(--border); border-radius: 8px; padding: 0.8rem;
+            text-align: center; cursor: pointer; transition: border-color 0.2s; margin-top: 0.5rem;
+        }
+        .upload-area:hover { border-color: var(--accent); }
+        .upload-area.dragover { border-color: var(--magenta); background: rgba(224,64,251,0.05); }
+        .upload-area input[type="file"] { display: none; }
+        .upload-area .upload-label { font-size: 0.8rem; color: var(--text-dim); }
+        .upload-area .upload-label span { color: var(--accent); cursor: pointer; }
+        .uploaded-files { margin-top: 0.5rem; }
+        .uploaded-file {
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--surface-2); border-radius: 4px; padding: 0.3rem 0.6rem;
+            font-size: 0.75rem; margin-top: 0.3rem;
+        }
+        .uploaded-file .uf-name { color: var(--cyan); }
+        .uploaded-file .uf-size { color: var(--text-dim); }
+        .uploaded-file .uf-remove { color: var(--text-dim); cursor: pointer; background: none; border: none; font-size: 0.8rem; }
+        .uploaded-file .uf-remove:hover { color: var(--red); }
     </style>
 </head>
 <body>
@@ -275,6 +340,7 @@
     <div class="mode-tabs">
         <button class="mode-tab active" id="tabStock" onclick="switchMode('stock')">종목 분석</button>
         <button class="mode-tab" id="tabMacro" onclick="switchMode('macro')">거시 경제 토론</button>
+        <button class="mode-tab" id="tabHistory" onclick="switchMode('history')">토론 히스토리</button>
     </div>
 
     <!-- Market Ticker -->
@@ -335,6 +401,14 @@
                         <label>리포트/참고 자료 (여러 건은 --- 구분)</label>
                         <textarea id="hReports" placeholder="증권사 리포트, 뉴스 등 텍스트로 붙여넣기..."></textarea>
                     </div>
+                    <div class="setup-wide">
+                        <label>PDF/문서 업로드 (선택)</label>
+                        <div class="upload-area" id="stockUploadArea" onclick="document.getElementById('stockFileInput').click()">
+                            <input type="file" id="stockFileInput" accept=".pdf,.txt,.csv,.md,.json" multiple>
+                            <div class="upload-label">파일을 드래그하거나 <span>클릭하여 선택</span> (PDF, TXT, CSV)</div>
+                        </div>
+                        <div class="uploaded-files" id="stockUploadedFiles"></div>
+                    </div>
                 </div>
                 <div class="setup-actions">
                     <button class="btn-example" onclick="loadStockExample()">예시 불러오기</button>
@@ -359,6 +433,14 @@
                         <label>배경 정보 / 참고 자료 (선택 — 뉴스, 데이터 등 자유 형식으로 붙여넣기)</label>
                         <textarea id="mContext" style="min-height:120px;" placeholder="관련 뉴스, 통계, 보고서 등을 자유롭게 붙여넣으세요.&#10;&#10;예시:&#10;- 사모대출 펀드 A사 환매 중단 (2025.12)&#10;- 관련 펀드 총 규모 약 3조원, 환매 요청 1.2조원&#10;- 금감원 실태 조사 착수&#10;- 연쇄 환매 우려로 채권 시장 변동성 확대"></textarea>
                     </div>
+                    <div class="setup-wide">
+                        <label>PDF/문서 업로드 (선택)</label>
+                        <div class="upload-area" id="macroUploadArea" onclick="document.getElementById('macroFileInput').click()">
+                            <input type="file" id="macroFileInput" accept=".pdf,.txt,.csv,.md,.json" multiple>
+                            <div class="upload-label">파일을 드래그하거나 <span>클릭하여 선택</span> (PDF, TXT, CSV)</div>
+                        </div>
+                        <div class="uploaded-files" id="macroUploadedFiles"></div>
+                    </div>
                 </div>
                 <div class="setup-actions">
                     <button class="btn-example" onclick="loadMacroExample()">예시 불러오기</button>
@@ -366,6 +448,11 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- History Panel -->
+    <div class="history-panel" id="historyPanel">
+        <div id="historyContent"></div>
     </div>
 
     <!-- Input Area -->
@@ -413,23 +500,39 @@
         function switchMode(mode) {
             if (mode === currentMode) return;
 
-            // Save current mode state
-            const prev = modeState[currentMode];
-            // Collect dynamic chat messages (exclude setup panels)
-            const dynamicNodes = [...chat.children].filter(c => c.id !== 'welcomeMsg' && c.id !== 'stockSetup' && c.id !== 'macroSetup');
-            prev.chatHTML = dynamicNodes.map(n => n.outerHTML).join('');
-            prev.phaseDisplay = document.getElementById('phaseBar').style.display;
-            prev.inputDisplay = inputArea.style.display;
-            prev.inputHint = document.getElementById('inputHint').textContent;
+            // Save current mode state (only for stock/macro)
+            if (currentMode !== 'history') {
+                const prev = modeState[currentMode];
+                const dynamicNodes = [...chat.children].filter(c => c.id !== 'welcomeMsg' && c.id !== 'stockSetup' && c.id !== 'macroSetup');
+                prev.chatHTML = dynamicNodes.map(n => n.outerHTML).join('');
+                prev.phaseDisplay = document.getElementById('phaseBar').style.display;
+                prev.inputDisplay = inputArea.style.display;
+                prev.inputHint = document.getElementById('inputHint').textContent;
+                dynamicNodes.forEach(n => n.remove());
+            }
 
-            // Clear dynamic nodes
-            dynamicNodes.forEach(n => n.remove());
-
-            // Switch
             currentMode = mode;
 
             document.getElementById('tabStock').className = 'mode-tab' + (mode === 'stock' ? ' active' : '');
             document.getElementById('tabMacro').className = 'mode-tab' + (mode === 'macro' ? ' active' : '');
+            document.getElementById('tabHistory').className = 'mode-tab' + (mode === 'history' ? ' active' : '');
+
+            const historyPanel = document.getElementById('historyPanel');
+
+            if (mode === 'history') {
+                // Hide chat/input, show history panel
+                chat.style.display = 'none';
+                inputArea.style.display = 'none';
+                document.getElementById('phaseBar').style.display = 'none';
+                historyPanel.classList.add('visible');
+                loadHistoryList();
+                return;
+            }
+
+            // Leaving history → show chat
+            historyPanel.classList.remove('visible');
+            chat.style.display = '';
+
             document.getElementById('stockSetup').classList.toggle('hidden', mode !== 'stock');
             document.getElementById('macroSetup').classList.toggle('hidden', mode !== 'macro');
 
@@ -437,7 +540,6 @@
                 ? 'DarkForest — 3명의 AI 애널리스트가 토론하고, 당신이 매 라운드마다 대화로 조율합니다.'
                 : 'DarkForest — 3명의 매크로 전문가가 거시 경제 이슈를 토론하고, 당신이 대화로 조율합니다.';
 
-            // Restore new mode state
             const next = modeState[mode];
             if (next.chatHTML) {
                 const temp = document.createElement('div');
@@ -1001,6 +1103,10 @@
                     inner.appendChild(src);
                 }
 
+                // 무한 스크롤을 위해 아이템을 복제
+                const original = inner.innerHTML;
+                inner.innerHTML = original + original;
+
                 ticker.style.display = 'block';
             } catch(e) { /* ignore */ }
         }
@@ -1017,6 +1123,179 @@
             userInput.style.height = 'auto';
             userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
         });
+
+        // ── History Management ──
+        async function loadHistoryList() {
+            const container = document.getElementById('historyContent');
+            container.innerHTML = '<div class="history-empty">불러오는 중...</div>';
+            try {
+                const res = await fetch('/api/debate-histories');
+                const data = await res.json();
+                const histories = data.histories || [];
+                if (histories.length === 0) {
+                    container.innerHTML = '<div class="history-empty">아직 완료된 토론이 없습니다.<br>종목 분석이나 거시 경제 토론을 진행하면 여기에 저장됩니다.</div>';
+                    return;
+                }
+                let html = '<div class="history-list">';
+                for (const h of histories) {
+                    const date = h.saved_at ? new Date(h.saved_at).toLocaleString('ko-KR') : '';
+                    const stanceColor = getStanceColor(h.overall_stance);
+                    html += `
+                        <div class="history-card" onclick="loadHistoryDetail('${esc(h.session_id)}')">
+                            <div class="hc-top">
+                                <span class="hc-mode ${esc(h.mode)}">${esc(h.mode)}</span>
+                                <span class="hc-date">${esc(date)}</span>
+                            </div>
+                            <div class="hc-topic">${esc(h.topic)}</div>
+                            <span class="hc-stance" style="background:${stanceColor}20;color:${stanceColor}">${esc(h.overall_stance || '—')}</span>
+                            <div class="hc-summary">${esc(h.executive_summary || '')}</div>
+                            <div class="hc-actions">
+                                <button onclick="event.stopPropagation();loadHistoryDetail('${esc(h.session_id)}')">상세 보기</button>
+                                <button class="delete" onclick="event.stopPropagation();deleteHistory('${esc(h.session_id)}')">삭제</button>
+                            </div>
+                        </div>`;
+                }
+                html += '</div>';
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = '<div class="history-empty">히스토리를 불러올 수 없습니다.</div>';
+            }
+        }
+
+        function getStanceColor(stance) {
+            if (!stance) return '#888';
+            const s = stance.toLowerCase();
+            if (s.includes('buy') || s.includes('매수') || s.includes('낙관') || s.includes('strong')) return '#4caf50';
+            if (s.includes('sell') || s.includes('매도') || s.includes('비관')) return '#f44336';
+            if (s.includes('hold') || s.includes('보유') || s.includes('중립')) return '#ffc107';
+            return '#888';
+        }
+
+        async function loadHistoryDetail(sessionId) {
+            const container = document.getElementById('historyContent');
+            container.innerHTML = '<div class="history-empty">불러오는 중...</div>';
+            try {
+                const res = await fetch(`/api/debate-histories/${sessionId}`);
+                if (!res.ok) throw new Error('not found');
+                const data = await res.json();
+                let html = '<div class="history-detail">';
+                html += `<button class="hd-back" onclick="loadHistoryList()">← 목록으로</button>`;
+                html += `<h3>${esc(data.topic || sessionId)}</h3>`;
+                html += `<span class="hc-mode ${esc(data.mode || '')}" style="font-size:0.7rem;padding:0.1rem 0.5rem;border-radius:10px">${esc(data.mode || '')}</span>`;
+                html += `<span style="margin-left:0.5rem;font-size:0.7rem;color:var(--text-dim)">${data.saved_at ? new Date(data.saved_at).toLocaleString('ko-KR') : ''}</span>`;
+
+                const stanceColor = getStanceColor(data.overall_stance);
+                html += `<div class="hd-section"><h4>최종 판정</h4><span class="hc-stance" style="background:${stanceColor}20;color:${stanceColor};font-size:0.85rem">${esc(data.overall_stance || '—')}</span>`;
+                if (data.confidence) html += ` <span style="font-size:0.75rem;color:var(--text-dim)">(확신도: ${(data.confidence * 100).toFixed(0)}%)</span>`;
+                html += `</div>`;
+
+                if (data.executive_summary) {
+                    html += `<div class="hd-section"><h4>요약</h4><p style="font-size:0.82rem;line-height:1.6">${esc(data.executive_summary)}</p></div>`;
+                }
+
+                if (data.key_insights && data.key_insights.length) {
+                    html += `<div class="hd-section"><h4>핵심 합의</h4><ul style="font-size:0.8rem;padding-left:1.2rem">`;
+                    for (const p of data.key_insights) html += `<li>${esc(p)}</li>`;
+                    html += `</ul></div>`;
+                }
+                if (data.dissent_points && data.dissent_points.length) {
+                    html += `<div class="hd-section"><h4>이견</h4><ul style="font-size:0.8rem;padding-left:1.2rem">`;
+                    for (const p of data.dissent_points) html += `<li>${esc(p)}</li>`;
+                    html += `</ul></div>`;
+                }
+                if (data.action_items && data.action_items.length) {
+                    html += `<div class="hd-section"><h4>액션 아이템</h4><ul style="font-size:0.8rem;padding-left:1.2rem">`;
+                    for (const a of data.action_items) html += `<li>${esc(a)}</li>`;
+                    html += `</ul></div>`;
+                }
+                if (data.user_feedbacks && data.user_feedbacks.length) {
+                    html += `<div class="hd-section"><h4>사용자 피드백</h4><ul style="font-size:0.8rem;padding-left:1.2rem">`;
+                    for (const f of data.user_feedbacks) html += `<li style="color:var(--cyan)">${esc(f)}</li>`;
+                    html += `</ul></div>`;
+                }
+
+                // 라운드별 요약
+                if (data.rounds_summary && data.rounds_summary.length) {
+                    html += `<div class="hd-section"><h4>라운드별 주요 내용</h4>`;
+                    for (const r of data.rounds_summary) {
+                        html += `<div style="margin:0.5rem 0;font-size:0.8rem"><strong>Round ${r.round_number}</strong>`;
+                        for (const m of (r.messages || [])) {
+                            html += `<div style="margin:0.3rem 0 0.3rem 0.8rem;padding:0.3rem 0.5rem;background:var(--surface-2);border-radius:4px">`;
+                            html += `<span style="color:var(--accent);font-weight:600;font-size:0.75rem">${esc(m.agent)}</span>`;
+                            if (m.stance) html += ` <span style="font-size:0.7rem;color:var(--text-dim)">[${esc(m.stance)}]</span>`;
+                            html += `<p style="margin:0.2rem 0 0;font-size:0.75rem;color:var(--text-dim)">${esc(m.content)}</p></div>`;
+                        }
+                        html += `</div>`;
+                    }
+                    html += `</div>`;
+                }
+
+                html += '</div>';
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = '<div class="history-empty">상세 정보를 불러올 수 없습니다.</div>';
+            }
+        }
+
+        async function deleteHistory(sessionId) {
+            if (!confirm('이 토론 기록을 삭제하시겠습니까?')) return;
+            try {
+                await fetch(`/api/debate-histories/${sessionId}`, {method: 'DELETE'});
+                loadHistoryList();
+            } catch(e) { alert('삭제 실패'); }
+        }
+
+        // ── File Upload ──
+        function setupFileUpload(areaId, inputId, listId) {
+            const area = document.getElementById(areaId);
+            const input = document.getElementById(inputId);
+            const list = document.getElementById(listId);
+
+            // Drag & drop
+            area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('dragover'); });
+            area.addEventListener('dragleave', () => area.classList.remove('dragover'));
+            area.addEventListener('drop', e => {
+                e.preventDefault(); area.classList.remove('dragover');
+                handleFiles(e.dataTransfer.files, list);
+            });
+
+            // File input change
+            input.addEventListener('change', () => { handleFiles(input.files, list); input.value = ''; });
+        }
+
+        async function handleFiles(files, listEl) {
+            for (const file of files) {
+                const maxSize = 10 * 1024 * 1024;
+                if (file.size > maxSize) { alert(`${file.name}: 10MB 초과`); continue; }
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const item = document.createElement('div');
+                item.className = 'uploaded-file';
+                item.innerHTML = `<span class="uf-name">${esc(file.name)}</span><span class="uf-size">업로드 중...</span>`;
+                listEl.appendChild(item);
+
+                try {
+                    const res = await fetch('/api/upload/document?scope=global', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Upload failed');
+
+                    const sizeKB = (data.text_length / 1024).toFixed(1);
+                    item.innerHTML = `
+                        <span class="uf-name">${esc(file.name)}</span>
+                        <span class="uf-size">${sizeKB}KB 텍스트 추출됨</span>
+                        <button class="uf-remove" onclick="this.parentElement.remove()">✕</button>
+                    `;
+                } catch (e) {
+                    item.innerHTML = `<span class="uf-name">${esc(file.name)}</span><span class="uf-size" style="color:var(--red)">실패: ${esc(e.message)}</span>`;
+                }
+            }
+        }
+
+        // Initialize file upload areas
+        setupFileUpload('stockUploadArea', 'stockFileInput', 'stockUploadedFiles');
+        setupFileUpload('macroUploadArea', 'macroFileInput', 'macroUploadedFiles');
     </script>
 </body>
 </html>
