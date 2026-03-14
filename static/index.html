@@ -208,6 +208,35 @@
         .risk-card .scenario { font-size: 0.85rem; }
         .risk-card .meta { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.2rem; }
         .risk-card .hedge { font-size: 0.8rem; color: var(--green); margin-top: 0.2rem; }
+
+        /* Scenario analysis cards */
+        .scenario-card {
+            background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+            padding: 0.8rem; margin: 0.4rem 0;
+        }
+        .scenario-card .sc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+        .scenario-card .sc-name { font-size: 0.9rem; font-weight: 600; }
+        .scenario-card .sc-prob { font-size: 0.75rem; color: var(--cyan); }
+        .scenario-card .sc-desc { font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.5rem; }
+        .scenario-card .sc-bar-row { display: flex; align-items: center; gap: 0.3rem; margin: 0.15rem 0; font-size: 0.75rem; }
+        .scenario-card .sc-bar-label { width: 70px; text-align: right; color: var(--text-dim); }
+        .scenario-card .sc-bar { flex: 1; height: 10px; background: var(--surface); border-radius: 3px; overflow: hidden; position: relative; }
+        .scenario-card .sc-bar-fill { height: 100%; border-radius: 3px; position: absolute; }
+        .scenario-card .sc-bar-val { width: 45px; font-size: 0.72rem; }
+        .scenario-card .sc-signals { font-size: 0.72rem; color: var(--yellow); margin-top: 0.3rem; }
+        .scenario-card .sc-hedges { font-size: 0.72rem; color: var(--green); margin-top: 0.2rem; }
+
+        .stress-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0; font-size: 0.8rem; border-bottom: 1px solid var(--border); }
+        .stress-row:last-child { border-bottom: none; }
+        .stress-name { flex: 1; }
+        .stress-impact { width: 80px; text-align: right; font-weight: 600; }
+        .stress-dd { width: 80px; text-align: right; color: var(--red); font-size: 0.75rem; }
+
+        .alloc-bar-row { display: flex; align-items: center; gap: 0.4rem; margin: 0.2rem 0; font-size: 0.8rem; }
+        .alloc-label { width: 80px; text-align: right; color: var(--text-dim); }
+        .alloc-bar { flex: 1; height: 14px; background: var(--surface); border-radius: 3px; overflow: hidden; }
+        .alloc-fill { height: 100%; background: var(--cyan); border-radius: 3px; }
+        .alloc-pct { width: 40px; font-size: 0.75rem; }
     </style>
 </head>
 <body>
@@ -627,6 +656,110 @@
                 html += `</ul>`;
             }
             html += `</div></div>`;
+            const d = document.createElement('div'); d.className = 'msg'; d.innerHTML = html;
+            chat.appendChild(d); scrollBottom();
+
+            // 시나리오 분석 결과 시각화
+            if (result.scenario_analysis) addScenarioAnalysis(result.scenario_analysis);
+        }
+
+        // ── Scenario Analysis Visualization ──
+        function addScenarioAnalysis(sa) {
+            const ASSET_LABELS = {
+                stock_kr:'한국 주식', stock_us:'미국 주식', bond_gov:'국채', bond_corp:'회사채',
+                etf:'ETF', fund:'펀드', commodity:'원자재', real_estate:'부동산/리츠',
+                crypto:'암호화폐', cash:'현금/MMF',
+            };
+
+            let html = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;margin:0.5rem 0;">
+                <div style="font-size:0.95rem;font-weight:700;margin-bottom:0.8rem;color:var(--cyan);">시나리오 분석</div>`;
+
+            // 시나리오 카드
+            if (sa.scenarios?.length) {
+                for (const s of sa.scenarios) {
+                    const probPct = ((s.probability || 0) * 100).toFixed(0);
+                    const sevColors = {경미:'var(--green)',중간:'var(--yellow)',심각:'var(--orange)',극단:'var(--red)'};
+                    const sevColor = sevColors[s.severity] || 'var(--text-dim)';
+
+                    html += `<div class="scenario-card">
+                        <div class="sc-header">
+                            <span class="sc-name">${esc(s.name)}</span>
+                            <span class="sc-prob" style="color:${sevColor}">확률 ${probPct}% · ${esc(s.severity || '중간')}</span>
+                        </div>
+                        <div style="height:4px;background:var(--surface);border-radius:2px;margin-bottom:0.4rem;overflow:hidden;">
+                            <div style="width:${probPct}%;height:100%;background:${sevColor};border-radius:2px;"></div>
+                        </div>
+                        <div class="sc-desc">${esc(s.description || '')}</div>`;
+
+                    // 자산별 영향 바 차트
+                    if (s.asset_impacts && Object.keys(s.asset_impacts).length) {
+                        html += `<div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:0.2rem;">자산군별 영향</div>`;
+                        const impacts = Object.entries(s.asset_impacts).sort((a,b) => a[1] - b[1]);
+                        for (const [asset, impact] of impacts) {
+                            const label = ASSET_LABELS[asset] || asset;
+                            const absImpact = Math.min(Math.abs(impact), 30);
+                            const pct = (absImpact / 30 * 50).toFixed(0);
+                            const color = impact >= 0 ? 'var(--green)' : 'var(--red)';
+                            const sign = impact >= 0 ? '+' : '';
+                            const dir = impact >= 0 ? 'left:50%;' : `right:50%;`;
+                            html += `<div class="sc-bar-row">
+                                <span class="sc-bar-label">${esc(label)}</span>
+                                <div class="sc-bar"><div class="sc-bar-fill" style="${dir}width:${pct}%;background:${color};"></div></div>
+                                <span class="sc-bar-val" style="color:${color}">${sign}${impact.toFixed(1)}%</span>
+                            </div>`;
+                        }
+                    }
+
+                    if (s.key_signals?.length) {
+                        html += `<div class="sc-signals">주시 신호: ${s.key_signals.map(esc).join(' / ')}</div>`;
+                    }
+                    if (s.hedges?.length) {
+                        html += `<div class="sc-hedges">헤지: ${s.hedges.map(esc).join(' / ')}</div>`;
+                    }
+                    html += `</div>`;
+                }
+            }
+
+            // 스트레스 테스트
+            if (sa.stress_tests?.length) {
+                html += `<div style="margin-top:0.8rem;font-size:0.85rem;font-weight:600;">스트레스 테스트</div>`;
+                for (const st of sa.stress_tests) {
+                    const impColor = st.portfolio_impact_pct >= 0 ? 'var(--green)' : 'var(--red)';
+                    const sign = st.portfolio_impact_pct >= 0 ? '+' : '';
+                    html += `<div class="stress-row">
+                        <span class="stress-name">${esc(st.scenario_name)}</span>
+                        <span class="stress-impact" style="color:${impColor}">${sign}${st.portfolio_impact_pct.toFixed(1)}%</span>
+                        <span class="stress-dd">${st.max_drawdown_pct ? `MDD ${st.max_drawdown_pct.toFixed(1)}%` : ''}</span>
+                    </div>`;
+                }
+            }
+
+            // 최적 자산 배분
+            if (sa.weighted_allocation && Object.keys(sa.weighted_allocation).length) {
+                html += `<div style="margin-top:0.8rem;font-size:0.85rem;font-weight:600;">확률 가중 최적 자산 배분</div>`;
+                const allocs = Object.entries(sa.weighted_allocation).sort((a,b) => b[1] - a[1]);
+                for (const [asset, weight] of allocs) {
+                    if (weight < 1) continue;
+                    const label = ASSET_LABELS[asset] || asset;
+                    html += `<div class="alloc-bar-row">
+                        <span class="alloc-label">${esc(label)}</span>
+                        <div class="alloc-bar"><div class="alloc-fill" style="width:${Math.min(weight, 100).toFixed(0)}%"></div></div>
+                        <span class="alloc-pct">${weight.toFixed(0)}%</span>
+                    </div>`;
+                }
+            }
+
+            // 기대 수익률
+            if (sa.expected_portfolio_return != null) {
+                const ret = sa.expected_portfolio_return;
+                const retColor = ret >= 0 ? 'var(--green)' : 'var(--red)';
+                const retSign = ret >= 0 ? '+' : '';
+                html += `<div style="margin-top:0.6rem;font-size:0.85rem;text-align:center;padding-top:0.5rem;border-top:1px solid var(--border);">
+                    확률 가중 기대 수익률: <strong style="color:${retColor}">${retSign}${ret.toFixed(1)}%</strong>
+                </div>`;
+            }
+
+            html += `</div>`;
             const d = document.createElement('div'); d.className = 'msg'; d.innerHTML = html;
             chat.appendChild(d); scrollBottom();
         }

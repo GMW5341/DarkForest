@@ -48,6 +48,36 @@ class MacroDebateRoundModel(BaseModel):
     messages: list[MacroMessageModel] = Field(default_factory=list)
 
 
+class ScenarioModel(BaseModel):
+    """시나리오 (API 직렬화용)."""
+    name: str = ""
+    description: str = ""
+    probability: float = Field(default=0.25, ge=0, le=1)
+    severity: str = "중간"
+    asset_impacts: dict[str, float] = Field(default_factory=dict)
+    recommended_allocation: dict[str, float] = Field(default_factory=dict)
+    key_signals: list[str] = Field(default_factory=list)
+    hedges: list[str] = Field(default_factory=list)
+
+
+class StressTestModel(BaseModel):
+    """스트레스 테스트 결과 (API 직렬화용)."""
+    scenario_name: str = ""
+    portfolio_impact_pct: float = 0.0
+    asset_impacts: dict[str, float] = Field(default_factory=dict)
+    worst_asset: str = ""
+    best_asset: str = ""
+    max_drawdown_pct: float = 0.0
+
+
+class ScenarioAnalysisModel(BaseModel):
+    """시나리오 분석 전체 결과 (API 직렬화용)."""
+    scenarios: list[ScenarioModel] = Field(default_factory=list)
+    stress_tests: list[StressTestModel] = Field(default_factory=list)
+    weighted_allocation: dict[str, float] = Field(default_factory=dict)
+    expected_portfolio_return: float = 0.0
+
+
 class MacroDebateResult(BaseModel):
     """거시 경제 토론 최종 결과."""
     topic: str = Field(description="토론 주제")
@@ -61,3 +91,6 @@ class MacroDebateResult(BaseModel):
     action_items: list[str] = Field(default_factory=list)
     monitoring_points: list[str] = Field(default_factory=list)
     rounds: list[MacroDebateRoundModel] = Field(default_factory=list)
+    scenario_analysis: ScenarioAnalysisModel | None = Field(
+        default=None, description="시나리오 분석 결과 (시나리오별 확률, 자산 영향, 스트레스 테스트, 최적 배분)"
+    )

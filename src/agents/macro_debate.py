@@ -24,6 +24,13 @@ from src.agents.macro_base import (
     MacroDebateMessage,
     _safe_parse_json,
 )
+from src.engine.scenario import (
+    SCENARIO_SYSTEM_PROMPT,
+    ScenarioAnalysisResult,
+    build_scenario_prompt,
+    format_scenario_for_synthesis,
+    run_scenario_analysis,
+)
 from src.models.analysis import UserFeedback
 
 if TYPE_CHECKING:
@@ -198,8 +205,24 @@ class MacroDebateOrchestrator:
         user_final_comment: str = "",
         context: str = "",
     ) -> dict:
-        """전체 토론 + 사용자 피드백 종합 → 최종 전략 권고."""
+        """전체 토론 + 시나리오 분석 + 사용자 피드백 종합 → 최종 전략 권고."""
         full_history = self._format_debate_history(rounds)
+
+        # ── 시나리오 분석 (Claude → 시나리오 생성 → 수학적 분석) ──
+        scenario_section = ""
+        scenario_result: ScenarioAnalysisResult | None = None
+        try:
+            scenario_prompt = build_scenario_prompt(topic, context, full_history)
+            scenario_response = await self.synthesizer_client.ask(
+                system=SCENARIO_SYSTEM_PROMPT,
+                user_message=scenario_prompt,
+            )
+            scenarios_data = _safe_parse_json(scenario_response)
+            scenario_result = run_scenario_analysis(scenarios_data)
+            if scenario_result.scenarios:
+                scenario_section = format_scenario_for_synthesis(scenario_result)
+        except Exception:
+            pass  # 시나리오 분석 실패 시 무시하고 진행
 
         feedback_section = ""
         if user_feedbacks:
@@ -225,8 +248,10 @@ class MacroDebateOrchestrator:
             prompt += f"## 배경 정보\n{context}\n\n"
         prompt += (
             f"## 전문가 토론 전체 기록\n{full_history}"
+            f"{scenario_section}"
             f"{feedback_section}\n\n"
-            f"위 토론과 투자자 피드백을 종합하여 최종 투자 전략 권고를 내려주세요.\n"
+            f"위 토론, 시나리오 분석 결과, 투자자 피드백을 종합하여 최종 투자 전략 권고를 내려주세요.\n"
+            f"시나리오별 확률과 자산 영향을 기본 프레임으로 삼되, 정성적 논의가 포착한 추가 요인을 보정하세요.\n"
             f"반드시 JSON 형식으로 응답하세요."
         )
 
@@ -235,7 +260,13 @@ class MacroDebateOrchestrator:
             user_message=prompt,
         )
 
-        return _safe_parse_json(response)
+        result = _safe_parse_json(response)
+
+        # 시나리오 분석 결과를 응답에 포함
+        if scenario_result and scenario_result.scenarios:
+            result["scenario_analysis"] = scenario_result.to_dict()
+
+        return result
 
     @staticmethod
     def _format_debate_history(rounds: list[MacroDebateRound]) -> str:

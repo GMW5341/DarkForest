@@ -94,6 +94,7 @@ class BaseAnalystAgent(ABC):
             f"- 동의하는 포인트와 그 이유\n"
             f"- 반대하는 포인트와 그 근거\n"
             f"- 당신의 수정된 입장 (변경 또는 유지)\n"
+            f"- **근거를 반드시 밝히세요**: 재무 데이터, 산업 통계, 유사 기업 사례 등 출처를 명시하세요\n"
         )
         if user_feedback and user_feedback.content:
             prompt += f"- 투자자 말에 대한 당신의 의견도 꼭 포함\n"
@@ -151,6 +152,7 @@ class BaseAnalystAgent(ABC):
             f"- 토론을 통해 변경된 점이 있다면 명시\n"
             f"- 최종 투자 판단과 확신도\n"
             f"- 핵심 근거 3가지\n"
+            f"- **각 근거에 구체적 출처를 제시하세요**: '~에 따르면', '역사적으로 ~' 등\n"
         )
         if user_feedback:
             prompt += f"- 투자자 피드백을 어떻게 반영했는지 명시\n"

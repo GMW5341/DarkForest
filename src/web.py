@@ -329,6 +329,16 @@ async def debate_synthesize(session_id: str, feedback: FeedbackRequest | None = 
             phase=DebatePhase.SYNTHESIZED,
         )
         session.phase = DebatePhase.SYNTHESIZED
+
+        # 토론 이력 저장 (피드백 루프용)
+        _debate_history_store.append({
+            "session_id": session_id,
+            "mode": "stock",
+            "topic": f"{session.holding.name} ({session.holding.ticker})",
+            "overall_stance": synthesis.get("final_decision", ""),
+            "executive_summary": synthesis.get("final_reasoning", ""),
+            "key_insights": synthesis.get("consensus_points", []),
+        })
     except Exception as e:
         session.error = str(e)
 
@@ -389,6 +399,9 @@ class MacroStartRequest(BaseModel):
     topic: MacroTopic
     api_key: str | None = Field(default=None)
     model: str = Field(default="claude-sonnet-4-20250514")
+    include_past_insights: bool = Field(
+        default=True, description="과거 토론 인사이트를 배경 정보에 포함할지 여부"
+    )
 
 
 class MacroSessionResponse(BaseModel):
@@ -446,11 +459,22 @@ async def macro_start(req: MacroStartRequest):
     if not api_key:
         raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY가 필요합니다.")
 
+    # 과거 토론 인사이트 주입
+    context = req.topic.context
+    if req.include_past_insights and _debate_history_store:
+        past_lines = ["\n\n## 과거 토론 인사이트 (참고용)"]
+        for h in _debate_history_store[-5:]:  # 최근 5개만
+            past_lines.append(
+                f"- [{h['mode'].upper()}] {h['topic']}: {h.get('overall_stance', '?')} "
+                f"— {h.get('executive_summary', '')[:100]}"
+            )
+        context += "\n".join(past_lines)
+
     session_id = str(uuid.uuid4())[:8]
     session = MacroDebateSession(
         session_id=session_id,
         topic=req.topic.title,
-        context=req.topic.context,
+        context=context,
         api_key=api_key,
         model=req.model,
     )
@@ -550,7 +574,13 @@ async def macro_synthesize(session_id: str, feedback: FeedbackRequest | None = N
         )
 
         # Parse investment_implications and risk_scenarios
-        from src.models.macro import InvestmentImplication, RiskScenario
+        from src.models.macro import (
+            InvestmentImplication,
+            RiskScenario,
+            ScenarioAnalysisModel,
+            ScenarioModel,
+            StressTestModel,
+        )
         implications = []
         for imp in synthesis.get("investment_implications", []):
             if isinstance(imp, dict):
@@ -559,6 +589,25 @@ async def macro_synthesize(session_id: str, feedback: FeedbackRequest | None = N
         for rs in synthesis.get("risk_scenarios", []):
             if isinstance(rs, dict):
                 risk_scenarios.append(RiskScenario(**rs))
+
+        # Parse scenario analysis results
+        scenario_analysis = None
+        sa_data = synthesis.get("scenario_analysis")
+        if sa_data and isinstance(sa_data, dict):
+            scenarios = []
+            for s in sa_data.get("scenarios", []):
+                if isinstance(s, dict):
+                    scenarios.append(ScenarioModel(**s))
+            stress_tests = []
+            for st in sa_data.get("stress_tests", []):
+                if isinstance(st, dict):
+                    stress_tests.append(StressTestModel(**st))
+            scenario_analysis = ScenarioAnalysisModel(
+                scenarios=scenarios,
+                stress_tests=stress_tests,
+                weighted_allocation=sa_data.get("weighted_allocation", {}),
+                expected_portfolio_return=sa_data.get("expected_portfolio_return", 0.0),
+            )
 
         result = MacroDebateResult(
             topic=session.topic,
@@ -572,14 +621,54 @@ async def macro_synthesize(session_id: str, feedback: FeedbackRequest | None = N
             action_items=synthesis.get("action_items", []),
             monitoring_points=synthesis.get("monitoring_points", []),
             rounds=[_round_to_model(r) for r in session.rounds],
+            scenario_analysis=scenario_analysis,
         )
         session.result = synthesis
         session.phase = "synthesized"
+
+        # 토론 이력 저장 (피드백 루프용)
+        _debate_history_store.append({
+            "session_id": session.session_id,
+            "mode": "macro",
+            "topic": session.topic,
+            "overall_stance": synthesis.get("overall_stance", ""),
+            "executive_summary": synthesis.get("executive_summary", ""),
+            "key_insights": synthesis.get("consensus_points", []),
+        })
     except Exception as e:
         session.error = str(e)
         result = None
 
     return _macro_response(session, result=result)
+
+
+# ── 토론 이력 (데이터 피드백 루프) ──
+
+_debate_history_store: list[dict] = []  # 과거 토론 기록 저장소
+
+
+@app.get("/api/macro/{session_id}/history")
+async def macro_get_history(session_id: str):
+    """거시 토론 전체 기록 조회 (재활용 가능)."""
+    session = _macro_sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+    orchestrator = _get_macro_orchestrator(session)
+    history = orchestrator._format_debate_history(session.rounds)
+    return {
+        "session_id": session_id,
+        "topic": session.topic,
+        "context": session.context,
+        "debate_history": history,
+        "user_feedbacks": [{"content": fb.content} for fb in session.user_feedbacks],
+        "result": session.result,
+    }
+
+
+@app.get("/api/debate-histories")
+async def list_debate_histories():
+    """과거 토론 기록 목록 조회."""
+    return {"histories": _debate_history_store}
 
 
 # ── 기타 ──
