@@ -126,7 +126,9 @@ class DocumentStore:
 
     def add(self, filename: str, text: str) -> dict[str, Any]:
         """문서 추가. 텍스트와 메타데이터를 영구 저장."""
-        doc_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + "_" + filename.replace(" ", "_")
+        import hashlib
+        name_hash = hashlib.sha256(filename.encode()).hexdigest()[:12]
+        doc_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + "_" + name_hash
         doc_path = self.directory / f"{doc_id}.txt"
         doc_path.write_text(text, encoding="utf-8")
 
