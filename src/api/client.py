@@ -14,6 +14,8 @@ import os
 
 import anthropic
 
+from src.config import UsageTracker
+
 logger = logging.getLogger(__name__)
 
 _MAX_RETRIES = 4
@@ -26,8 +28,9 @@ class ClaudeClient:
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-opus-4-20250514",
         max_tokens: int = 4096,
+        usage_tracker: UsageTracker | None = None,
     ):
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
         if not self.api_key:
@@ -37,7 +40,17 @@ class ClaudeClient:
             )
         self.model = model
         self.max_tokens = max_tokens
+        self.usage_tracker = usage_tracker or UsageTracker()
         self._client = anthropic.AsyncAnthropic(api_key=self.api_key)
+
+    def _track_usage(self, message) -> None:
+        """API 응답에서 사용량을 추적."""
+        if hasattr(message, "usage"):
+            self.usage_tracker.add(
+                model=self.model,
+                input_tokens=message.usage.input_tokens,
+                output_tokens=message.usage.output_tokens,
+            )
 
     async def _call_with_retry(self, create_fn):
         """429 Rate Limit 에러 시 지수 백오프로 재시도."""
@@ -75,6 +88,7 @@ class ClaudeClient:
             )
 
         message = await self._call_with_retry(_create)
+        self._track_usage(message)
         # 텍스트 블록만 추출
         text_parts = [
             block.text
@@ -124,6 +138,7 @@ class ClaudeClient:
             )
 
         message = await self._call_with_retry(_create)
+        self._track_usage(message)
 
         text_parts = [
             block.text

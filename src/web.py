@@ -41,6 +41,7 @@ from src.models.macro import (
     MacroTopic,
 )
 from src.agents.macro_base import MacroDebateMessage
+from src.config import UsageTracker, get_settings, update_settings
 from src.data.history import get_document_store, get_draft_store, get_history_store
 from src.data.market_data import fetch_macro_market_data, fetch_market_snapshot
 from src.data.pdf_extractor import extract_text_from_file, extract_text_from_file_with_vision
@@ -68,7 +69,7 @@ class DebateSession(BaseModel):
     result: DebateResult | None = None
     error: str | None = None
     api_key: str = ""
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "claude-opus-4-20250514"
     market_context: str = Field(default="", description="실시간 시장 데이터 컨텍스트")
 
 
@@ -615,12 +616,13 @@ class MacroDebateSession:
         self.user_feedbacks: list[UserFeedback] = []
         self.result: dict | None = None
         self.error: str | None = None
+        self.usage_tracker = UsageTracker()
 
 
 class MacroStartRequest(BaseModel):
     topic: MacroTopic
     api_key: str | None = Field(default=None)
-    model: str = Field(default="claude-sonnet-4-20250514")
+    model: str = Field(default="claude-opus-4-20250514")
     include_past_insights: bool = Field(
         default=True, description="과거 토론 인사이트를 배경 정보에 포함할지 여부"
     )
@@ -632,10 +634,15 @@ class MacroSessionResponse(BaseModel):
     rounds: list[MacroDebateRoundModel] = Field(default_factory=list)
     result: MacroDebateResult | None = None
     error: str | None = None
+    usage: dict | None = None
 
 
 def _get_macro_orchestrator(session: MacroDebateSession) -> MacroDebateOrchestrator:
-    client = ClaudeClient(api_key=session.api_key, model=session.model)
+    client = ClaudeClient(
+        api_key=session.api_key,
+        model=session.model,
+        usage_tracker=session.usage_tracker,
+    )
     agents = [
         MacroEconomistAgent(client),
         MarketStrategistAgent(client),
@@ -671,6 +678,7 @@ def _macro_response(session: MacroDebateSession, result: MacroDebateResult | Non
         rounds=[_round_to_model(r) for r in session.rounds],
         result=result,
         error=session.error,
+        usage=session.usage_tracker.summary(),
     )
 
 
@@ -1184,6 +1192,30 @@ async def analyze_sync(req: AnalyzeRequest):
         return await analyzer.analyze(req.portfolio)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── 설정 관리 API ──
+
+@app.get("/api/settings")
+async def get_current_settings():
+    """현재 설정 조회."""
+    return get_settings().to_dict()
+
+
+@app.patch("/api/settings")
+async def patch_settings(updates: dict):
+    """설정 업데이트. 변경할 필드만 전달."""
+    settings = update_settings(**updates)
+    return settings.to_dict()
+
+
+@app.get("/api/macro/{session_id}/usage")
+async def macro_usage(session_id: str):
+    """세션의 API 사용량/비용 조회."""
+    session = _macro_sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+    return session.usage_tracker.summary()
 
 
 @app.get("/api/health")

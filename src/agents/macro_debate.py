@@ -49,26 +49,32 @@ MACRO_SYNTHESIS_PROMPT = """\
 - 합의된 포인트와 갈린 포인트를 명확히 구분합니다
 - 실행 가능한 구체적 전략을 제시합니다
 
+## ⚠️ 할루시네이션 방지 (최우선 규칙)
+- **참고 자료에 없는 구체적 수치를 만들어내지 마세요.**
+- 전문가들이 제시한 근거 없는 주장이 있으면 '(근거 불명확)' 으로 표시하세요.
+- 각 권고에 **왜** 그렇게 해야 하는지 원인→결과 인과 체인을 반드시 포함하세요.
+- 확인 불가능한 것은 '확인 필요' 로 솔직히 표시하세요.
+
 ## 응답 형식 (반드시 JSON)
 {
     "overall_stance": "방어적" | "공격적" | "중립" | "관망",
     "confidence": 0.0~1.0,
     "executive_summary": "핵심 요약 (3-5문장)",
-    "consensus_points": ["합의 포인트1", ...],
-    "dissent_points": ["의견 불일치 포인트1", ...],
+    "consensus_points": ["합의 포인트1 — 근거 요약", ...],
+    "dissent_points": ["의견 불일치 포인트1 — 양측 논리 요약", ...],
     "investment_implications": [
         {"category": "자산 배분" | "섹터" | "방어 전략" | "기회 포착",
          "recommendation": "구체적 권고",
-         "rationale": "근거"}
+         "rationale": "왜 이 권고가 유효한지 인과 체인 (A→B→C 형태)"}
     ],
     "risk_scenarios": [
         {"scenario": "시나리오 설명",
          "probability": "높음/중간/낮음",
          "impact": "높음/중간/낮음",
-         "hedge": "대응 방안"}
+         "hedge": "대응 방안 — 근거"}
     ],
-    "action_items": ["지금 당장 해야 할 것1", ...],
-    "monitoring_points": ["앞으로 주시해야 할 것1", ...]
+    "action_items": ["행동1 — 이유: (인과 체인)", ...],
+    "monitoring_points": ["모니터링1 — 이 지표가 중요한 이유", ...]
 }"""
 
 
