@@ -3,11 +3,17 @@ Macro Analyst Agent — 거시 경제 분석 에이전트 공통 인터페이스
 
 개별 종목이 아닌 거시 경제 이슈, 시장 테마, 정책 변화 등
 넓은 관점의 주제에 대해 토론하는 에이전트 베이스 클래스.
+
+설계 원칙: "자연어 사고 우선, 구조화는 마지막에"
+- Claude가 자유롭게 사고하고 글을 쓸 수 있도록 자연어 분석을 먼저 요청
+- JSON은 메타데이터(입장, 확신도)만 담아 마지막에 추출
+- 이렇게 하면 Claude가 깊이 있는 추론을 하면서도 구조화된 데이터를 얻을 수 있음
 """
 
 from __future__ import annotations
 
 import json
+import re
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
@@ -95,51 +101,42 @@ class BaseMacroAgent(ABC):
             prompt += f"\n## 배경 정보 / 참고 자료\n{context}\n"
         prompt += (
             f"\n## 지시사항\n"
-            f"위 주제에 대해 당신의 관점({self.role})에서 심층 분석하세요.\n\n"
-            f"### 필수 분석 항목\n"
-            f"1. 현재 상황 진단: 구체적 데이터와 지표 기반\n"
-            f"2. 투자자에게 미치는 영향: 원인→결과 인과관계를 명확히\n"
-            f"3. 구체적 행동 제안: **왜** 그 행동이 유효한지 논리적 근거 체인 포함\n"
-            f"   (예: 'A이므로 → B가 발생 → 따라서 C 자산에 유리')\n\n"
-            f"### 근거 제시 규칙 (반드시 준수)\n"
-            f"- **제공된 참고 자료에 있는 정보만 인용하세요.** 참고 자료에 없는 통계/수치/보고서를 만들어내지 마세요.\n"
-            f"- 제공된 자료 인용 시: '(참고 자료 문서 N에 따르면, ~)' 형태로 출처 명시\n"
-            f"- 일반 상식/경제 원리 인용 시: '(일반적으로 ~한 경향이 있음)' 으로 표기\n"
-            f"- 본인의 추론/판단일 경우: '(본인 판단: ~)' 으로 명확히 구분\n"
-            f"- **확인되지 않은 구체적 수치(%, bp, 금액)를 절대 만들어내지 마세요.**\n"
-            f"  수치를 제시하려면 반드시 참고 자료에서 가져오세요.\n\n"
-            f"반드시 다음 JSON으로 응답:\n"
-            f'{{\n'
-            f'  "stance": "방어적" | "공격적" | "중립" | "관망",\n'
-            f'  "confidence": 0.0~1.0,\n'
-            f'  "reasoning": "분석 내용 (인과관계 체인 포함, 각 주장에 근거 태그 필수)",\n'
-            f'  "key_points": [\n'
-            f'    "핵심 포인트1 — 근거: (출처 또는 논리 경로)",\n'
-            f'    "핵심 포인트2 — 근거: (출처 또는 논리 경로)"\n'
-            f'  ],\n'
-            f'  "risks": ["리스크1 — 발생 조건과 경로", ...],\n'
-            f'  "action_items": [\n'
-            f'    "행동 제안1 — 이유: (왜 이것이 유효한지 인과 체인)",\n'
-            f'    "행동 제안2 — 이유: (왜 이것이 유효한지 인과 체인)"\n'
-            f'  ]\n'
-            f'}}'
+            f"위 주제에 대해 당신의 관점({self.role})에서 **전문가로서 충분히 깊이 있게** 분석하세요.\n"
+            f"마치 투자 위원회에서 발표하듯이 자연스러운 글로 작성하세요.\n\n"
+            f"### 반드시 포함할 내용\n"
+            f"1. **현재 상황 진단**: 참고 자료의 데이터를 인용하며 현황 분석\n"
+            f"2. **인과관계 분석**: 왜 이런 상황이 발생했고, 앞으로 어떤 경로를 밟을지\n"
+            f"   (예: 'A 요인 → B 영향 → C 결과' 형태의 논리 체인)\n"
+            f"3. **투자 시사점**: 구체적 행동 제안과 **왜** 그 행동이 유효한지 근거\n"
+            f"4. **리스크**: 본인 판단이 틀릴 수 있는 조건과 시나리오\n\n"
+            f"### ⚠️ 근거 규칙 (최우선)\n"
+            f"- 참고 자료에 있는 내용을 인용할 때: '(문서 N에 따르면, ~)'\n"
+            f"- 일반적 경제 원리: '(일반적으로 ~한 경향)'\n"
+            f"- 본인 추론: '(본인 판단)'\n"
+            f"- **참고 자료에 없는 구체적 수치(%, bp, 금액)를 만들어내지 마세요.**\n"
+            f"  확인할 수 없으면 '정확한 수치는 확인 필요'라고 쓰세요.\n\n"
+            f"### 응답 형식\n"
+            f"자연어로 충분히 분석한 후, 글 맨 마지막에 아래 JSON 블록을 추가하세요:\n"
+            f"```json\n"
+            f'{{"stance": "방어적|공격적|중립|관망", "confidence": 0.0~1.0}}\n'
+            f"```"
         )
 
         response = await self.client.ask(
             system=self.system_prompt,
             user_message=prompt,
         )
-        data = _safe_parse_json(response)
+        reasoning_text, meta = _split_response(response)
 
         return MacroAgentOpinion(
             agent_name=self.name,
             agent_role=self.role,
-            stance=data.get("stance", "중립"),
-            confidence=min(max(data.get("confidence", 0.5), 0.0), 1.0),
-            reasoning=data.get("reasoning", response),
-            key_points=data.get("key_points", []),
-            risks=data.get("risks", []),
-            action_items=data.get("action_items", []),
+            stance=meta.get("stance", "중립"),
+            confidence=min(max(meta.get("confidence", 0.5), 0.0), 1.0),
+            reasoning=reasoning_text,
+            key_points=meta.get("key_points", []),
+            risks=meta.get("risks", []),
+            action_items=meta.get("action_items", []),
         )
 
     async def rebut(
@@ -170,43 +167,41 @@ class BaseMacroAgent(ABC):
             f"## 다른 전문가들의 의견\n{opinions_text}\n"
             f"{feedback_section}\n"
             f"## 지시사항\n"
-            f"위 의견들을 읽고 반론 또는 동의를 표명하세요.\n"
-            f"- 동의하는 포인트: 왜 동의하는지 논리적 근거 포함\n"
-            f"- 반대하는 포인트: 어떤 전제/가정/논리가 틀렸는지 구체적으로 지적\n"
-            f"- 당신의 수정된 입장\n\n"
-            f"### 근거 제시 규칙 (반드시 준수)\n"
-            f"- 제공된 참고 자료에 있는 정보만 인용하세요. 없는 통계/수치를 만들어내지 마세요.\n"
-            f"- 다른 전문가의 인용이 참고 자료에 없으면 그 점을 지적하세요.\n"
-            f"- 본인 추론은 '(본인 판단: ~)' 으로 명확히 구분하세요.\n"
+            f"다른 전문가들의 분석을 읽고, 전문가로서 자연스러운 대화체로 반론/동의를 작성하세요.\n\n"
+            f"### 반드시 포함할 내용\n"
+            f"- 동의하는 포인트: **왜** 동의하는지 논리적 근거\n"
+            f"- 반대하는 포인트: 상대의 **어떤 전제/가정/논리**가 약한지 구체적 지적\n"
+            f"- 당신의 수정된 입장\n"
         )
         if user_feedback and user_feedback.content:
-            prompt += f"- 투자자 말에 대한 당신의 의견도 꼭 포함\n"
+            prompt += f"- 투자자 의견에 대한 당신의 견해\n"
         prompt += (
-            f"\n반드시 다음 JSON으로 응답:\n"
-            f'{{\n'
-            f'  "stance": "방어적" | "공격적" | "중립" | "관망",\n'
-            f'  "confidence": 0.0~1.0,\n'
-            f'  "content": "반론/동의 내용 (각 주장에 근거 태그 필수)",\n'
-            f'  "agreements": ["동의 포인트1 — 근거: (이유)", ...],\n'
-            f'  "disagreements": ["반론 포인트1 — 근거: (상대 논리의 어떤 부분이 약한지)", ...]\n'
-            f'}}'
+            f"\n### ⚠️ 근거 규칙\n"
+            f"- 참고 자료에 없는 수치를 만들어내지 마세요.\n"
+            f"- 다른 전문가가 근거 없는 수치를 인용했으면 그 점을 지적하세요.\n"
+            f"- 본인 추론은 '(본인 판단)' 으로 구분하세요.\n\n"
+            f"### 응답 형식\n"
+            f"자연어로 충분히 논의한 후, 글 맨 마지막에 아래 JSON 블록을 추가하세요:\n"
+            f"```json\n"
+            f'{{"stance": "방어적|공격적|중립|관망", "confidence": 0.0~1.0}}\n'
+            f"```"
         )
 
         response = await self.client.ask(
             system=self.system_prompt,
             user_message=prompt,
         )
-        data = _safe_parse_json(response)
+        content_text, meta = _split_response(response)
 
         return MacroDebateMessage(
             agent_name=self.name,
             round_number=round_number,
             message_type="rebuttal",
-            stance=data.get("stance", "중립"),
-            confidence=min(max(data.get("confidence", 0.5), 0.0), 1.0),
-            content=data.get("content", response),
-            agreements=data.get("agreements", []),
-            disagreements=data.get("disagreements", []),
+            stance=meta.get("stance", "중립"),
+            confidence=min(max(meta.get("confidence", 0.5), 0.0), 1.0),
+            content=content_text,
+            agreements=meta.get("agreements", []),
+            disagreements=meta.get("disagreements", []),
         )
 
     async def final_position(
@@ -234,51 +229,75 @@ class BaseMacroAgent(ABC):
             f"## 토론 경과\n{debate_history}\n"
             f"{feedback_section}\n"
             f"## 지시사항\n"
-            f"토론 전체를 종합하여 최종 입장을 정리하세요.\n"
+            f"토론 전체를 종합하여 최종 입장을 자연스러운 전문가 어조로 정리하세요.\n\n"
+            f"### 반드시 포함할 내용\n"
             f"- 토론을 통해 변경된 점과 그 이유\n"
-            f"- 최종 판단과 확신도\n"
+            f"- 최종 판단의 핵심 논거 3가지 (각각 인과 체인 포함)\n"
+            f"  예: '금 비중 확대 → 이유: A 요인으로 달러 약세 → B 경로로 금 수요 증가'\n"
             f"- 투자자를 위한 구체적 행동 제안 3가지\n"
-            f"  각 제안에 **왜** 그렇게 해야 하는지 인과관계를 반드시 포함\n"
-            f"  (예: '금 비중 확대 → 이유: A 요인으로 달러 약세 예상 → B 경로로 금 수요 증가')\n\n"
-            f"### 근거 제시 규칙 (반드시 준수)\n"
-            f"- 참고 자료에 있는 정보만 인용하세요. 확인 불가능한 수치를 만들어내지 마세요.\n"
-            f"- 본인의 추론은 '(본인 판단)' 으로 명확히 표시하세요.\n"
         )
         if user_feedback and user_feedback.content:
             prompt += f"- 투자자 피드백을 어떻게 반영했는지 명시\n"
         prompt += (
-            f"\n반드시 다음 JSON으로 응답:\n"
-            f'{{\n'
-            f'  "stance": "방어적" | "공격적" | "중립" | "관망",\n'
-            f'  "confidence": 0.0~1.0,\n'
-            f'  "content": "최종 입장 정리 (각 주장에 인과 체인 포함)",\n'
-            f'  "key_reasons": [\n'
-            f'    "핵심 근거1 — 논리: (원인→결과 체인)",\n'
-            f'    "핵심 근거2 — 논리: (원인→결과 체인)",\n'
-            f'    "핵심 근거3 — 논리: (원인→결과 체인)"\n'
-            f'  ]\n'
-            f'}}'
+            f"\n### ⚠️ 근거 규칙\n"
+            f"- 참고 자료에 없는 수치를 만들어내지 마세요.\n"
+            f"- 본인 추론은 '(본인 판단)' 으로 구분하세요.\n\n"
+            f"### 응답 형식\n"
+            f"자연어로 충분히 정리한 후, 글 맨 마지막에 아래 JSON 블록을 추가하세요:\n"
+            f"```json\n"
+            f'{{"stance": "방어적|공격적|중립|관망", "confidence": 0.0~1.0}}\n'
+            f"```"
         )
 
         response = await self.client.ask(
             system=self.system_prompt,
             user_message=prompt,
         )
-        data = _safe_parse_json(response)
+        content_text, meta = _split_response(response)
 
         return MacroDebateMessage(
             agent_name=self.name,
             round_number=3,
             message_type="final",
-            stance=data.get("stance", "중립"),
-            confidence=min(max(data.get("confidence", 0.5), 0.0), 1.0),
-            content=data.get("content", response),
-            agreements=data.get("key_reasons", []),
+            stance=meta.get("stance", "중립"),
+            confidence=min(max(meta.get("confidence", 0.5), 0.0), 1.0),
+            content=content_text,
+            agreements=meta.get("key_reasons", []),
             disagreements=[],
         )
 
 
 # ── Helpers ──
+
+def _split_response(text: str) -> tuple[str, dict]:
+    """
+    응답에서 자연어 본문과 마지막 JSON 블록을 분리.
+
+    Claude가 자연어로 충분히 사고한 뒤 마지막에 JSON 메타데이터를 붙이면,
+    본문(reasoning/content)과 구조화 데이터(stance, confidence)를 각각 추출.
+    """
+    # ```json ... ``` 블록 찾기
+    json_block_pattern = re.compile(r"```json\s*\n?(.*?)\n?\s*```", re.DOTALL)
+    matches = list(json_block_pattern.finditer(text))
+
+    if matches:
+        last_match = matches[-1]
+        # JSON 블록 이전까지가 본문
+        body = text[:last_match.start()].strip()
+        try:
+            meta = json.loads(last_match.group(1).strip())
+        except json.JSONDecodeError:
+            meta = {}
+        return body, meta
+
+    # JSON 블록이 없으면 전체에서 JSON 추출 시도 (하위 호환)
+    data = _safe_parse_json(text)
+    if "reasoning" in data:
+        return data.get("reasoning", text), data
+    if "content" in data:
+        return data.get("content", text), data
+    return text, data
+
 
 def _safe_parse_json(text: str) -> dict:
     """JSON 파싱. 실패 시 빈 dict + 원본 보존."""
@@ -314,10 +333,7 @@ def _format_macro_opinions(opinions: list[MacroAgentOpinion]) -> str:
     for op in opinions:
         parts.append(
             f"### {op.agent_name} ({op.agent_role})\n"
-            f"- 입장: {op.stance}\n"
-            f"- 확신도: {op.confidence:.0%}\n"
-            f"- 분석: {op.reasoning}\n"
-            f"- 핵심 포인트: {', '.join(op.key_points) if op.key_points else '없음'}\n"
-            f"- 리스크: {', '.join(op.risks) if op.risks else '없음'}"
+            f"- 입장: {op.stance} (확신도: {op.confidence:.0%})\n\n"
+            f"{op.reasoning}"
         )
-    return "\n\n".join(parts)
+    return "\n\n---\n\n".join(parts)

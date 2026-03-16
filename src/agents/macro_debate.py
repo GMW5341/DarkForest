@@ -23,6 +23,7 @@ from src.agents.macro_base import (
     MacroAgentOpinion,
     MacroDebateMessage,
     _safe_parse_json,
+    _split_response,
 )
 from src.engine.scenario import (
     SCENARIO_SYSTEM_PROMPT,
@@ -51,31 +52,22 @@ MACRO_SYNTHESIS_PROMPT = """\
 
 ## ⚠️ 할루시네이션 방지 (최우선 규칙)
 - **참고 자료에 없는 구체적 수치를 만들어내지 마세요.**
-- 전문가들이 제시한 근거 없는 주장이 있으면 '(근거 불명확)' 으로 표시하세요.
+- 전문가들이 근거 없는 수치를 제시했으면 '(근거 불명확)' 으로 표시하세요.
 - 각 권고에 **왜** 그렇게 해야 하는지 원인→결과 인과 체인을 반드시 포함하세요.
 - 확인 불가능한 것은 '확인 필요' 로 솔직히 표시하세요.
 
-## 응답 형식 (반드시 JSON)
+## 응답 방식
+자연어로 투자 전략 회의 결론을 작성하듯 충분히 서술하세요.
+마치 CIO가 투자 위원회 회의 결과를 정리하여 보고서로 쓰는 것처럼.
+
+글 맨 마지막에 아래 JSON 블록을 추가하세요:
+```json
 {
-    "overall_stance": "방어적" | "공격적" | "중립" | "관망",
+    "overall_stance": "방어적|공격적|중립|관망",
     "confidence": 0.0~1.0,
-    "executive_summary": "핵심 요약 (3-5문장)",
-    "consensus_points": ["합의 포인트1 — 근거 요약", ...],
-    "dissent_points": ["의견 불일치 포인트1 — 양측 논리 요약", ...],
-    "investment_implications": [
-        {"category": "자산 배분" | "섹터" | "방어 전략" | "기회 포착",
-         "recommendation": "구체적 권고",
-         "rationale": "왜 이 권고가 유효한지 인과 체인 (A→B→C 형태)"}
-    ],
-    "risk_scenarios": [
-        {"scenario": "시나리오 설명",
-         "probability": "높음/중간/낮음",
-         "impact": "높음/중간/낮음",
-         "hedge": "대응 방안 — 근거"}
-    ],
-    "action_items": ["행동1 — 이유: (인과 체인)", ...],
-    "monitoring_points": ["모니터링1 — 이 지표가 중요한 이유", ...]
-}"""
+    "action_items": ["행동1", "행동2", "행동3"]
+}
+```"""
 
 
 class MacroDebateRound:
@@ -258,7 +250,7 @@ class MacroDebateOrchestrator:
             f"{feedback_section}\n\n"
             f"위 토론, 시나리오 분석 결과, 투자자 피드백을 종합하여 최종 투자 전략 권고를 내려주세요.\n"
             f"시나리오별 확률과 자산 영향을 기본 프레임으로 삼되, 정성적 논의가 포착한 추가 요인을 보정하세요.\n"
-            f"반드시 JSON 형식으로 응답하세요."
+            f"자연어로 충분히 서술한 뒤 마지막에 JSON 메타데이터 블록을 추가하세요."
         )
 
         response = await self.synthesizer_client.ask(
@@ -266,7 +258,9 @@ class MacroDebateOrchestrator:
             user_message=prompt,
         )
 
-        result = _safe_parse_json(response)
+        synthesis_text, meta = _split_response(response)
+        result = meta
+        result["executive_summary"] = synthesis_text
 
         # 시나리오 분석 결과를 응답에 포함
         if scenario_result and scenario_result.scenarios:
