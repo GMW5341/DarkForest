@@ -7,10 +7,17 @@ Claude API Client — Anthropic API 통합 레이어.
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import logging
 import os
 
 import anthropic
+
+logger = logging.getLogger(__name__)
+
+_MAX_RETRIES = 4
+_BASE_DELAY = 2.0  # seconds
 
 
 class ClaudeClient:
@@ -32,20 +39,42 @@ class ClaudeClient:
         self.max_tokens = max_tokens
         self._client = anthropic.AsyncAnthropic(api_key=self.api_key)
 
+    async def _call_with_retry(self, create_fn):
+        """429 Rate Limit 에러 시 지수 백오프로 재시도."""
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                return await create_fn()
+            except anthropic.RateLimitError as e:
+                if attempt == _MAX_RETRIES:
+                    raise
+                # retry-after 헤더가 있으면 사용, 없으면 지수 백오프
+                retry_after = getattr(e.response, "headers", {}).get("retry-after")
+                if retry_after:
+                    delay = float(retry_after)
+                else:
+                    delay = _BASE_DELAY * (2 ** attempt)
+                logger.warning(
+                    f"Rate limit (429). {delay:.1f}초 대기 후 재시도 ({attempt + 1}/{_MAX_RETRIES})..."
+                )
+                await asyncio.sleep(delay)
+
     async def ask(
         self,
         user_message: str,
         system: str = "",
     ) -> str:
         """Claude에게 질문하고 텍스트 응답을 반환."""
-        message = await self._client.messages.create(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            system=system,
-            messages=[
-                {"role": "user", "content": user_message},
-            ],
-        )
+        async def _create():
+            return await self._client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                system=system,
+                messages=[
+                    {"role": "user", "content": user_message},
+                ],
+            )
+
+        message = await self._call_with_retry(_create)
         # 텍스트 블록만 추출
         text_parts = [
             block.text
@@ -86,12 +115,15 @@ class ClaudeClient:
 
         content.append({"type": "text", "text": text_prompt})
 
-        message = await self._client.messages.create(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": content}],
-        )
+        async def _create():
+            return await self._client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                system=system,
+                messages=[{"role": "user", "content": content}],
+            )
+
+        message = await self._call_with_retry(_create)
 
         text_parts = [
             block.text

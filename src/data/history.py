@@ -169,27 +169,45 @@ class DocumentStore:
             return True
         return False
 
-    def get_all_context(self, max_chars_per_doc: int = 8000) -> str:
+    def get_all_context(
+        self,
+        max_chars_per_doc: int = 8000,
+        max_total_chars: int = 40000,
+    ) -> str:
         """
         모든 저장 문서의 텍스트를 에이전트 컨텍스트 문자열로 반환.
         누적된 전체 지식 베이스.
+
+        Args:
+            max_chars_per_doc: 문서당 최대 글자수
+            max_total_chars: 전체 컨텍스트 총 글자수 예산 (~12,000 토큰)
         """
         index = self._load_index()
         if not index:
             return ""
 
+        # 문서가 많으면 문서당 할당량을 줄여서 총량 내에 맞춤
+        per_doc_budget = min(max_chars_per_doc, max_total_chars // max(len(index), 1))
+
         lines = ["\n\n## 참고 자료 (누적 문서 베이스)"]
         lines.append(f"(총 {len(index)}건의 문서가 등록되어 있습니다)\n")
 
+        total_used = 0
         for i, entry in enumerate(index, 1):
+            if total_used >= max_total_chars:
+                lines.append(f"### 문서 {i}~{len(index)}: (토큰 예산 초과로 생략)")
+                break
             text = self.load_text(entry["doc_id"])
             if not text:
                 continue
+            remaining = max_total_chars - total_used
+            budget = min(per_doc_budget, remaining)
             lines.append(f"### 문서 {i}: {entry['filename']}")
-            if len(text) > max_chars_per_doc:
-                text = text[:max_chars_per_doc] + f"\n\n... (총 {len(text):,}자 중 {max_chars_per_doc:,}자까지 포함)"
+            if len(text) > budget:
+                text = text[:budget] + f"\n\n... (총 {len(text):,}자 중 {budget:,}자까지 포함)"
             lines.append(text)
             lines.append("")
+            total_used += len(text)
 
         return "\n".join(lines) if len(lines) > 2 else ""
 
