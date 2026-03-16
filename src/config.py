@@ -42,6 +42,9 @@ class DarkForestSettings:
     # 비용 추적
     track_costs: bool = True
 
+    # 외부 API 키
+    dart_api_key: str = ""  # OpenDART API 키 (https://opendart.fss.or.kr)
+
     def to_dict(self) -> dict:
         return {
             "default_model": self.default_model,
@@ -49,6 +52,7 @@ class DarkForestSettings:
             "max_total_context_chars": self.max_total_context_chars,
             "max_chars_per_doc": self.max_chars_per_doc,
             "track_costs": self.track_costs,
+            "dart_api_key": self.dart_api_key,
         }
 
     def save(self) -> None:

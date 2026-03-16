@@ -43,6 +43,7 @@ from src.models.macro import (
 from src.agents.macro_base import MacroDebateMessage
 from src.config import UsageTracker, get_settings, update_settings
 from src.data.history import get_document_store, get_draft_store, get_history_store
+from src.data.filings import fetch_filing_data
 from src.data.market_data import fetch_macro_market_data, fetch_market_snapshot, fetch_stock_financials
 from src.data.pdf_extractor import extract_text_from_file, extract_text_from_file_with_vision
 from src.models.portfolio import Holding, Portfolio
@@ -379,10 +380,26 @@ async def debate_start(req: DebateStartRequest):
     except Exception:
         pass  # 재무 데이터 실패 시 무시
 
-    # 시장 데이터 + 재무 데이터 + 누적 문서 + 과거 인사이트를 holding에 추가
+    # 공시 원문 재무제표 자동 수집 (DART / SEC EDGAR)
+    filing_context = ""
+    try:
+        from src.config import get_settings
+        dart_key = get_settings().dart_api_key
+        filing = await fetch_filing_data(
+            ticker=req.holding.ticker,
+            name=req.holding.name,
+            dart_api_key=dart_key,
+        )
+        filing_context = filing.to_context_text()
+    except Exception:
+        pass  # 공시 데이터 실패 시 무시
+
+    # 시장 데이터 + 재무 데이터 + 공시 데이터 + 누적 문서 + 과거 인사이트를 holding에 추가
     holding = req.holding.model_copy()
     session_id = str(uuid.uuid4())[:8]
     extra_context = ""
+    if filing_context:
+        extra_context += filing_context
     if financial_context:
         extra_context += financial_context
     if market_context:
