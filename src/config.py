@@ -15,8 +15,11 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# ── 영구 데이터 디렉토리 (Render Persistent Disk 등) ──
+DATA_DIR = Path(os.environ.get("DARKFOREST_DATA_DIR", "data"))
+
 _SETTINGS_PATH = Path(os.environ.get(
-    "DARKFOREST_SETTINGS", "data/settings.json",
+    "DARKFOREST_SETTINGS", str(DATA_DIR / "settings.json"),
 ))
 
 # ── Anthropic 모델별 가격 (USD / 1M tokens, 2025-05 기준) ──
@@ -162,3 +165,80 @@ def update_settings(**kwargs) -> DarkForestSettings:
 
 
 _settings: DarkForestSettings | None = None
+
+
+# ── 누적 API 비용 추적 (영구 저장) ──
+
+_USAGE_PATH = DATA_DIR / "usage.json"
+
+
+@dataclass
+class CumulativeUsageTracker:
+    """재배포해도 유지되는 누적 API 비용 추적기.
+
+    매 API 호출마다 usage.json에 즉시 기록한다.
+    """
+
+    total_calls: int = 0
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    total_cost_usd: float = 0.0
+
+    def add(self, model: str, input_tokens: int, output_tokens: int) -> None:
+        """API 호출 1건 누적 기록."""
+        pricing = MODEL_PRICING.get(model, {"input": 3.0, "output": 15.0})
+        cost = (
+            input_tokens * pricing["input"] / 1_000_000
+            + output_tokens * pricing["output"] / 1_000_000
+        )
+        self.total_calls += 1
+        self.total_input_tokens += input_tokens
+        self.total_output_tokens += output_tokens
+        self.total_cost_usd += cost
+        self._save()
+
+    def summary(self) -> dict:
+        return {
+            "total_calls": self.total_calls,
+            "total_input_tokens": self.total_input_tokens,
+            "total_output_tokens": self.total_output_tokens,
+            "total_tokens": self.total_input_tokens + self.total_output_tokens,
+            "total_cost_usd": round(self.total_cost_usd, 6),
+            "total_cost_krw": round(self.total_cost_usd * 1400, 0),
+        }
+
+    def _save(self) -> None:
+        try:
+            _USAGE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            _USAGE_PATH.write_text(
+                json.dumps(self.summary(), ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception as e:
+            logger.warning(f"누적 사용량 저장 실패: {e}")
+
+    @classmethod
+    def load(cls) -> CumulativeUsageTracker:
+        if _USAGE_PATH.exists():
+            try:
+                data = json.loads(_USAGE_PATH.read_text(encoding="utf-8"))
+                return cls(
+                    total_calls=data.get("total_calls", 0),
+                    total_input_tokens=data.get("total_input_tokens", 0),
+                    total_output_tokens=data.get("total_output_tokens", 0),
+                    total_cost_usd=data.get("total_cost_usd", 0.0),
+                )
+            except Exception:
+                logger.warning("누적 사용량 파일 로드 실패, 0부터 시작")
+        return cls()
+
+
+_cumulative_usage: CumulativeUsageTracker | None = None
+
+
+def get_cumulative_usage() -> CumulativeUsageTracker:
+    """글로벌 누적 사용량 트래커."""
+    global _cumulative_usage
+    if _cumulative_usage is None:
+        _cumulative_usage = CumulativeUsageTracker.load()
+    return _cumulative_usage

@@ -16,10 +16,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from src.config import DATA_DIR
+
 logger = logging.getLogger(__name__)
 
-# 기본 저장 경로
-_DEFAULT_DIR = Path("data/history")
+# 기본 저장 경로 (DARKFOREST_DATA_DIR 환경변수 우선)
+_DEFAULT_DIR = DATA_DIR / "history"
 
 
 def _ensure_dir(directory: Path) -> None:
@@ -100,7 +102,7 @@ class DebateHistoryStore:
 
 # ── 문서 저장소 (영구) ──
 
-_DEFAULT_DOC_DIR = Path("data/documents")
+_DEFAULT_DOC_DIR = DATA_DIR / "documents"
 
 
 class DocumentStore:
@@ -214,7 +216,7 @@ class DocumentStore:
 
 # ── 토론 중간 저장 (Draft) ──
 
-_DEFAULT_DRAFT_DIR = Path("data/drafts")
+_DEFAULT_DRAFT_DIR = DATA_DIR / "drafts"
 
 
 class DraftStore:

@@ -4,6 +4,14 @@ services:
     runtime: python
     buildCommand: pip install . uvicorn[standard] fastapi
     startCommand: uvicorn src.web:app --host 0.0.0.0 --port $PORT
+    disk:
+      name: darkforest-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
+      - key: DART_API_KEY
+        sync: false
+      - key: DARKFOREST_DATA_DIR
+        value: /data

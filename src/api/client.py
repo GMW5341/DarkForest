@@ -14,7 +14,7 @@ import os
 
 import anthropic
 
-from src.config import UsageTracker
+from src.config import UsageTracker, get_cumulative_usage
 
 logger = logging.getLogger(__name__)
 
@@ -44,13 +44,13 @@ class ClaudeClient:
         self._client = anthropic.AsyncAnthropic(api_key=self.api_key)
 
     def _track_usage(self, message) -> None:
-        """API 응답에서 사용량을 추적."""
+        """API 응답에서 사용량을 추적 (세션 + 누적)."""
         if hasattr(message, "usage"):
-            self.usage_tracker.add(
-                model=self.model,
-                input_tokens=message.usage.input_tokens,
-                output_tokens=message.usage.output_tokens,
-            )
+            inp = message.usage.input_tokens
+            out = message.usage.output_tokens
+            self.usage_tracker.add(model=self.model, input_tokens=inp, output_tokens=out)
+            # 영구 누적 트래커에도 기록 (디스크 저장)
+            get_cumulative_usage().add(model=self.model, input_tokens=inp, output_tokens=out)
 
     async def _call_with_retry(self, create_fn):
         """429 Rate Limit 에러 시 지수 백오프로 재시도."""

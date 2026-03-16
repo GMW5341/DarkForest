@@ -41,7 +41,7 @@ from src.models.macro import (
     MacroTopic,
 )
 from src.agents.macro_base import MacroDebateMessage
-from src.config import UsageTracker, get_settings, update_settings
+from src.config import UsageTracker, get_cumulative_usage, get_settings, update_settings
 from src.data.history import get_document_store, get_draft_store, get_history_store
 from src.data.filings import fetch_filing_data
 from src.data.market_data import fetch_macro_market_data, fetch_market_snapshot, fetch_stock_financials
@@ -1297,6 +1297,12 @@ async def all_usage():
         "debate_sessions": len(_session_usage),
         "macro_sessions": len(_macro_sessions),
     }
+
+
+@app.get("/api/usage/cumulative")
+async def cumulative_usage():
+    """누적 API 사용량 (재배포해도 유지). 서비스 시작 이후 전체 비용."""
+    return get_cumulative_usage().summary()
 
 
 @app.get("/api/health")
