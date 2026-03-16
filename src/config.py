@@ -42,7 +42,7 @@ class DarkForestSettings:
     # 비용 추적
     track_costs: bool = True
 
-    # 외부 API 키
+    # 외부 API 키 (환경변수 → settings.json → 빈 문자열 순으로 fallback)
     dart_api_key: str = ""  # OpenDART API 키 (https://opendart.fss.or.kr)
 
     def to_dict(self) -> dict:
@@ -64,13 +64,24 @@ class DarkForestSettings:
 
     @classmethod
     def load(cls) -> DarkForestSettings:
+        data: dict = {}
         if _SETTINGS_PATH.exists():
             try:
                 data = json.loads(_SETTINGS_PATH.read_text(encoding="utf-8"))
-                return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
             except Exception:
                 logger.warning("설정 파일 로드 실패, 기본값 사용")
-        return cls()
+
+        # 환경변수가 있으면 settings.json보다 우선
+        env_overrides = {
+            "dart_api_key": os.environ.get("DART_API_KEY", ""),
+            "default_model": os.environ.get("DARKFOREST_MODEL", ""),
+            "max_tokens": os.environ.get("DARKFOREST_MAX_TOKENS", ""),
+        }
+        for key, env_val in env_overrides.items():
+            if env_val:
+                data[key] = int(env_val) if key == "max_tokens" else env_val
+
+        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
 # ── API 사용량 추적 ──
