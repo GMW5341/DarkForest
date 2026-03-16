@@ -34,16 +34,24 @@ def extract_text_from_pdf(file_bytes: bytes, max_pages: int = 50) -> str:
     if not _HAS_FITZ:
         raise RuntimeError("pymupdf 패키지가 설치되지 않았습니다: pip install pymupdf")
 
-    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    try:
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+    except Exception as exc:
+        raise RuntimeError(f"PDF 파일을 열 수 없습니다: {exc}") from exc
+
     pages = []
     page_count = len(doc)
     total = min(page_count, max_pages)
 
     for i in range(total):
-        page = doc[i]
-        text = page.get_text("text")
-        if text.strip():
-            pages.append(f"--- 페이지 {i + 1}/{page_count} ---\n{text.strip()}")
+        try:
+            page = doc[i]
+            text = page.get_text("text")
+            if text.strip():
+                pages.append(f"--- 페이지 {i + 1}/{page_count} ---\n{text.strip()}")
+        except Exception:
+            logger.warning(f"페이지 {i + 1} 추출 실패, 건너뜀")
+            continue
 
     doc.close()
 

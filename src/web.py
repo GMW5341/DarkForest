@@ -809,11 +809,14 @@ async def upload_document(file: UploadFile = File(...)):
         extracted = extract_text_from_file(content, file.filename)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"파일 처리 실패: {e}")
 
     # 영구 저장
-    entry = get_document_store().add(file.filename, extracted)
+    try:
+        entry = get_document_store().add(file.filename, extracted)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"문서 저장 실패: {e}")
 
     return {
         "filename": file.filename,
