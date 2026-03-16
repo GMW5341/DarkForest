@@ -3,11 +3,14 @@ Base Analyst Agent — AI 애널리스트 에이전트 공통 인터페이스.
 
 각 에이전트는 고유한 관점(persona)과 분석 프레임을 가지고,
 독립적으로 기업을 분석한 뒤 토론에 참여한다.
+
+설계 원칙: "자연어 사고 우선, 구조화는 마지막에"
 """
 
 from __future__ import annotations
 
 import json
+import re
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
@@ -90,40 +93,41 @@ class BaseAnalystAgent(ABC):
             f"## 다른 애널리스트들의 의견\n{opinions_text}\n"
             f"{feedback_section}\n"
             f"## 지시사항\n"
-            f"위 의견들을 읽고 반론 또는 동의를 표명하세요.\n"
-            f"- 동의하는 포인트와 그 이유\n"
-            f"- 반대하는 포인트와 그 근거\n"
-            f"- 당신의 수정된 입장 (변경 또는 유지)\n"
-            f"- **근거를 반드시 밝히세요**: 재무 데이터, 산업 통계, 유사 기업 사례 등 출처를 명시하세요\n"
+            f"다른 애널리스트들의 분석을 읽고, 전문가로서 자연스러운 대화체로 반론/동의를 작성하세요.\n\n"
+            f"### 반드시 포함할 내용\n"
+            f"- 동의하는 포인트: **왜** 동의하는지 논리적 근거\n"
+            f"- 반대하는 포인트: 상대의 **어떤 전제/가정/논리**가 약한지 구체적 지적\n"
+            f"- 당신의 수정된 입장\n"
         )
         if user_feedback and user_feedback.content:
             prompt += f"- 투자자 말에 대한 당신의 의견도 꼭 포함\n"
         prompt += (
-            f"\n반드시 다음 JSON으로 응답:\n"
-            f'{{\n'
-            f'  "stance": "buy" | "wait" | "pass" | "needs_more_data",\n'
-            f'  "confidence": 0.0~1.0,\n'
-            f'  "content": "반론/동의 내용",\n'
-            f'  "agreements": ["동의 포인트1", ...],\n'
-            f'  "disagreements": ["반론 포인트1", ...]\n'
-            f'}}'
+            f"\n### ⚠️ 근거 규칙\n"
+            f"- 제공된 재무 데이터/참고 자료에 있는 정보만 인용하세요.\n"
+            f"- 확인되지 않은 수치를 만들어내지 마세요.\n"
+            f"- 본인 추론은 '(본인 판단)' 으로 구분하세요.\n\n"
+            f"### 응답 형식\n"
+            f"자연어로 충분히 논의한 후, 글 맨 마지막에 아래 JSON 블록을 추가하세요:\n"
+            f"```json\n"
+            f'{{"stance": "buy|wait|pass|needs_more_data", "confidence": 0.0~1.0}}\n'
+            f"```"
         )
 
         response = await self.client.ask(
             system=self.system_prompt,
             user_message=prompt,
         )
-        data = self._safe_parse_json(response)
+        content_text, meta = _split_response(response)
 
         return DebateMessage(
             agent_name=self.name,
             round_number=round_number,
             message_type="rebuttal",
-            stance=self._parse_stance(data.get("stance", "needs_more_data")),
-            confidence=min(max(data.get("confidence", 0.5), 0.0), 1.0),
-            content=data.get("content", response),
-            agreements=data.get("agreements", []),
-            disagreements=data.get("disagreements", []),
+            stance=self._parse_stance(meta.get("stance", "needs_more_data")),
+            confidence=min(max(meta.get("confidence", 0.5), 0.0), 1.0),
+            content=content_text,
+            agreements=meta.get("agreements", []),
+            disagreements=meta.get("disagreements", []),
         )
 
     async def final_position(
@@ -148,38 +152,40 @@ class BaseAnalystAgent(ABC):
             f"## 토론 경과\n{debate_history}\n"
             f"{feedback_section}\n"
             f"## 지시사항\n"
-            f"토론 전체를 종합하여 최종 입장을 정리하세요.\n"
-            f"- 토론을 통해 변경된 점이 있다면 명시\n"
-            f"- 최종 투자 판단과 확신도\n"
-            f"- 핵심 근거 3가지\n"
-            f"- **각 근거에 구체적 출처를 제시하세요**: '~에 따르면', '역사적으로 ~' 등\n"
+            f"토론 전체를 종합하여 최종 입장을 자연스러운 전문가 어조로 정리하세요.\n\n"
+            f"### 반드시 포함할 내용\n"
+            f"- 토론을 통해 변경된 점과 그 이유\n"
+            f"- 최종 투자 판단의 핵심 논거 3가지 (각각 인과 체인 포함)\n"
+            f"- 구체적 행동 제안\n"
         )
-        if user_feedback:
+        if user_feedback and user_feedback.content:
             prompt += f"- 투자자 피드백을 어떻게 반영했는지 명시\n"
         prompt += (
-            f"\n반드시 다음 JSON으로 응답:\n"
-            f'{{\n'
-            f'  "stance": "buy" | "wait" | "pass" | "needs_more_data",\n'
-            f'  "confidence": 0.0~1.0,\n'
-            f'  "content": "최종 입장 정리",\n'
-            f'  "key_reasons": ["핵심 근거1", "핵심 근거2", "핵심 근거3"]\n'
-            f'}}'
+            f"\n### ⚠️ 근거 규칙\n"
+            f"- 제공된 재무 데이터/참고 자료에 있는 정보만 인용하세요.\n"
+            f"- 확인되지 않은 수치를 만들어내지 마세요.\n"
+            f"- 본인 추론은 '(본인 판단)' 으로 구분하세요.\n\n"
+            f"### 응답 형식\n"
+            f"자연어로 충분히 정리한 후, 글 맨 마지막에 아래 JSON 블록을 추가하세요:\n"
+            f"```json\n"
+            f'{{"stance": "buy|wait|pass|needs_more_data", "confidence": 0.0~1.0}}\n'
+            f"```"
         )
 
         response = await self.client.ask(
             system=self.system_prompt,
             user_message=prompt,
         )
-        data = self._safe_parse_json(response)
+        content_text, meta = _split_response(response)
 
         return DebateMessage(
             agent_name=self.name,
             round_number=3,
             message_type="final",
-            stance=self._parse_stance(data.get("stance", "needs_more_data")),
-            confidence=min(max(data.get("confidence", 0.5), 0.0), 1.0),
-            content=data.get("content", response),
-            agreements=data.get("key_reasons", []),
+            stance=self._parse_stance(meta.get("stance", "needs_more_data")),
+            confidence=min(max(meta.get("confidence", 0.5), 0.0), 1.0),
+            content=content_text,
+            agreements=meta.get("key_reasons", []),
             disagreements=[],
         )
 
@@ -187,22 +193,21 @@ class BaseAnalystAgent(ABC):
 
     def _parse_opinion(self, response: str) -> AgentOpinion:
         """Claude 응답을 AgentOpinion으로 파싱."""
-        data = self._safe_parse_json(response)
+        reasoning_text, meta = _split_response(response)
         return AgentOpinion(
             agent_name=self.name,
             agent_role=self.role,
-            stance=self._parse_stance(data.get("stance", "needs_more_data")),
-            confidence=min(max(data.get("confidence", 0.5), 0.0), 1.0),
-            reasoning=data.get("reasoning", response),
-            key_points=data.get("key_points", []),
-            red_flags=data.get("red_flags", []),
-            evidence=data.get("evidence", []),
+            stance=self._parse_stance(meta.get("stance", "needs_more_data")),
+            confidence=min(max(meta.get("confidence", 0.5), 0.0), 1.0),
+            reasoning=reasoning_text,
+            key_points=meta.get("key_points", []),
+            red_flags=meta.get("red_flags", []),
+            evidence=meta.get("evidence", []),
         )
 
     @staticmethod
     def _safe_parse_json(text: str) -> dict:
         """JSON 파싱. 실패 시 빈 dict + 원본 보존."""
-        # Try to extract JSON from markdown code blocks
         clean = text.strip()
         try:
             if "```json" in clean:
@@ -214,13 +219,11 @@ class BaseAnalystAgent(ABC):
                 end = clean.index("```", start)
                 clean = clean[start:end].strip()
         except ValueError:
-            # 닫는 ``` 가 없는 경우 — 무시하고 원본으로 진행
             pass
 
         try:
             return json.loads(clean)
         except json.JSONDecodeError:
-            # Try to find JSON object in text
             brace_start = text.find("{")
             brace_end = text.rfind("}")
             if brace_start != -1 and brace_end > brace_start:
@@ -245,13 +248,10 @@ class BaseAnalystAgent(ABC):
         for op in opinions:
             parts.append(
                 f"### {op.agent_name} ({op.agent_role})\n"
-                f"- 입장: {op.stance.value.upper()}\n"
-                f"- 확신도: {op.confidence:.0%}\n"
-                f"- 판단 근거: {op.reasoning}\n"
-                f"- 핵심 포인트: {', '.join(op.key_points) if op.key_points else '없음'}\n"
-                f"- 경고 신호: {', '.join(op.red_flags) if op.red_flags else '없음'}"
+                f"- 입장: {op.stance.value.upper()} (확신도: {op.confidence:.0%})\n\n"
+                f"{op.reasoning}"
             )
-        return "\n\n".join(parts)
+        return "\n\n---\n\n".join(parts)
 
     @staticmethod
     def _format_holding_info(holding: Holding, portfolio: Portfolio) -> str:
@@ -277,3 +277,28 @@ class BaseAnalystAgent(ABC):
                 info += f"\n\n### 자료 {i}\n{report}"
 
         return info
+
+
+# ── 응답 파서 ──
+
+def _split_response(text: str) -> tuple[str, dict]:
+    """응답에서 자연어 본문과 마지막 JSON 블록을 분리."""
+    json_block_pattern = re.compile(r"```json\s*\n?(.*?)\n?\s*```", re.DOTALL)
+    matches = list(json_block_pattern.finditer(text))
+
+    if matches:
+        last_match = matches[-1]
+        body = text[:last_match.start()].strip()
+        try:
+            meta = json.loads(last_match.group(1).strip())
+        except json.JSONDecodeError:
+            meta = {}
+        return body, meta
+
+    # 하위 호환: JSON-only 응답
+    data = BaseAnalystAgent._safe_parse_json(text)
+    if "reasoning" in data:
+        return data.get("reasoning", text), data
+    if "content" in data:
+        return data.get("content", text), data
+    return text, data

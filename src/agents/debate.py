@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from src.agents.base import BaseAnalystAgent
+from src.agents.base import BaseAnalystAgent, _split_response
 from src.engine.mcda import (
     MCDAResult,
     extract_scores,
@@ -57,17 +57,22 @@ SYNTHESIS_SYSTEM_PROMPT = """\
 - **WAIT**: 기업은 좋지만 타이밍이 아직 아닐 때 (비쌈, 촉매 부족 등)
 - **PASS**: 펀더멘털 문제, 과도한 리스크, 또는 더 나은 대안이 있을 때
 
-## 응답 형식 (반드시 JSON)
+## ⚠️ 할루시네이션 방지 (최우선 규칙)
+- 참고 자료에 없는 수치를 만들어내지 마세요.
+- 애널리스트들이 근거 없는 수치를 제시했으면 '(근거 불명확)' 으로 표시하세요.
+- 각 판단에 인과관계 체인을 포함하세요.
+
+## 응답 방식
+자연어로 투자위원회 결론을 작성하듯 충분히 서술하세요.
+
+글 맨 마지막에 아래 JSON 블록을 추가하세요:
+```json
 {
-    "final_decision": "buy" | "wait" | "pass" | "needs_more_data",
+    "final_decision": "buy|wait|pass|needs_more_data",
     "final_confidence": 0.0~1.0,
-    "final_reasoning": "최종 판단 근거 (토론 전체를 종합한 논리)",
-    "consensus_points": ["합의 포인트1", ...],
-    "dissent_points": ["의견 불일치 포인트1", ...],
-    "action_items": ["구체적 행동 제안1", ...],
-    "risk_summary": "핵심 리스크 요약",
-    "price_assessment": "적정가 평가 및 현재가 판단"
-}"""
+    "action_items": ["행동1", "행동2", "행동3"]
+}
+```"""
 
 
 class DebateOrchestrator:
@@ -222,7 +227,7 @@ class DebateOrchestrator:
             f"{feedback_section}\n\n"
             f"위 토론, MCDA 정량 분석, 투자자 피드백을 종합하여 최종 투자 판정을 내려주세요.\n"
             f"MCDA 정량 점수를 기본 기준으로 삼되, 정성적 논의가 점수로 포착하지 못한 요인이 있다면 보정하세요.\n"
-            f"반드시 JSON 형식으로 응답하세요."
+            f"자연어로 충분히 서술한 뒤 마지막에 JSON 메타데이터 블록을 추가하세요."
         )
 
         response = await self.synthesizer_client.ask(
@@ -230,7 +235,8 @@ class DebateOrchestrator:
             user_message=prompt,
         )
 
-        result = BaseAnalystAgent._safe_parse_json(response)
+        synthesis_text, result = _split_response(response)
+        result["final_reasoning"] = synthesis_text
 
         # MCDA 결과를 응답에 포함
         if mcda_result:

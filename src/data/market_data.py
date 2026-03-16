@@ -497,3 +497,294 @@ async def fetch_macro_market_data(include_commodities: bool = True) -> MarketSna
         include_news=True,
         include_commodities=include_commodities,
     )
+
+
+# ═══════════════════════════════════════════════
+# 종목 재무 데이터 자동 수집
+# ═══════════════════════════════════════════════
+
+NAVER_FINANCIAL_URL = "https://m.stock.naver.com/api/stock/{code}/finance/annual"
+NAVER_INTEGRATION_URL = "https://m.stock.naver.com/api/stock/{code}/integration"
+YAHOO_QUOTE_SUMMARY_URL = (
+    "https://query2.finance.yahoo.com/v10/finance/quoteSummary/{symbol}"
+    "?modules=defaultKeyStatistics,financialData,summaryDetail,earningsTrend"
+)
+
+
+@dataclass
+class StockFinancials:
+    """종목 핵심 재무 데이터."""
+    ticker: str
+    name: str = ""
+    current_price: float = 0.0
+    market_cap: str = ""
+    per: str = ""
+    pbr: str = ""
+    roe: str = ""
+    dividend_yield: str = ""
+    revenue: str = ""
+    operating_profit: str = ""
+    net_income: str = ""
+    debt_ratio: str = ""
+    sector: str = ""
+    industry: str = ""
+    week52_high: str = ""
+    week52_low: str = ""
+    foreign_ownership: str = ""
+    consensus_target: str = ""
+    consensus_opinion: str = ""
+    annual_financials: list[dict] = field(default_factory=list)
+    source: str = ""
+    errors: list[str] = field(default_factory=list)
+
+    def to_context_text(self) -> str:
+        """에이전트 프롬프트에 삽입할 재무 데이터 텍스트."""
+        if not self.current_price and not self.per:
+            return ""
+
+        lines = [f"\n## 자동 수집 재무 데이터 ({self.source} 기준)"]
+        lines.append("(아래 데이터는 자동 조회된 실제 데이터입니다.)\n")
+        lines.append(f"종목: {self.name} ({self.ticker})")
+        if self.sector:
+            lines.append(f"섹터/업종: {self.sector}")
+        if self.industry:
+            lines.append(f"세부 업종: {self.industry}")
+        if self.current_price:
+            lines.append(f"현재가: {self.current_price:,.0f}")
+        if self.market_cap:
+            lines.append(f"시가총액: {self.market_cap}")
+
+        lines.append("\n### 밸류에이션 지표")
+        if self.per:
+            lines.append(f"- PER: {self.per}")
+        if self.pbr:
+            lines.append(f"- PBR: {self.pbr}")
+        if self.roe:
+            lines.append(f"- ROE: {self.roe}")
+        if self.dividend_yield:
+            lines.append(f"- 배당수익률: {self.dividend_yield}")
+
+        if self.week52_high or self.week52_low:
+            lines.append("\n### 주가 범위")
+            if self.week52_high:
+                lines.append(f"- 52주 최고: {self.week52_high}")
+            if self.week52_low:
+                lines.append(f"- 52주 최저: {self.week52_low}")
+
+        if self.consensus_target or self.consensus_opinion:
+            lines.append("\n### 컨센서스")
+            if self.consensus_target:
+                lines.append(f"- 목표 주가: {self.consensus_target}")
+            if self.consensus_opinion:
+                lines.append(f"- 투자 의견: {self.consensus_opinion}")
+
+        if self.foreign_ownership:
+            lines.append(f"\n### 수급")
+            lines.append(f"- 외국인 지분율: {self.foreign_ownership}")
+
+        if self.revenue or self.operating_profit:
+            lines.append("\n### 최근 실적")
+            if self.revenue:
+                lines.append(f"- 매출액: {self.revenue}")
+            if self.operating_profit:
+                lines.append(f"- 영업이익: {self.operating_profit}")
+            if self.net_income:
+                lines.append(f"- 순이익: {self.net_income}")
+            if self.debt_ratio:
+                lines.append(f"- 부채비율: {self.debt_ratio}")
+
+        if self.annual_financials:
+            lines.append("\n### 연간 재무 추이")
+            for yr in self.annual_financials[-4:]:
+                period = yr.get("period", "?")
+                rev = yr.get("revenue", "-")
+                op = yr.get("operating_profit", "-")
+                ni = yr.get("net_income", "-")
+                lines.append(f"- {period}: 매출 {rev} / 영업이익 {op} / 순이익 {ni}")
+
+        if self.errors:
+            lines.append(f"\n(일부 데이터 수집 실패: {', '.join(self.errors)})")
+
+        return "\n".join(lines)
+
+
+async def fetch_stock_financials(ticker: str, name: str = "") -> StockFinancials:
+    """
+    종목 코드/티커로 핵심 재무 데이터를 자동 수집.
+
+    한국 종목(6자리 숫자): 네이버 금융 API
+    미국 종목: Yahoo Finance API
+    """
+    is_kr = ticker.isdigit() and len(ticker) == 6
+    financials = StockFinancials(ticker=ticker, name=name)
+
+    async with httpx.AsyncClient(follow_redirects=True) as client:
+        if is_kr:
+            await _fetch_kr_financials(client, ticker, financials)
+        else:
+            await _fetch_us_financials(client, ticker, financials)
+
+    return financials
+
+
+async def _fetch_kr_financials(
+    client: httpx.AsyncClient, code: str, out: StockFinancials,
+) -> None:
+    """네이버 금융 API에서 한국 종목 재무 데이터 수집."""
+    out.source = "네이버 금융"
+
+    # 1) 기본 종목 정보 + 밸류에이션
+    try:
+        resp = await _get(client, NAVER_API_STOCK_URL.format(code=code))
+        if resp:
+            data = resp.json()
+            out.name = out.name or data.get("stockName", code)
+            out.current_price = float(data.get("closePrice", "0").replace(",", ""))
+            out.market_cap = data.get("marketValue", "")
+    except Exception as e:
+        out.errors.append(f"기본 정보: {e}")
+
+    # 2) 통합 정보 (PER, PBR, ROE, 배당, 외국인 등)
+    try:
+        resp = await _get(client, NAVER_INTEGRATION_URL.format(code=code))
+        if resp:
+            data = resp.json()
+            # totalInfos에서 핵심 지표 추출
+            total = data.get("totalInfos", [])
+            for info_group in total:
+                for item in info_group.get("infos", []):
+                    code_key = item.get("code", "")
+                    val = item.get("value", "")
+                    if code_key == "per":
+                        out.per = val
+                    elif code_key == "pbr":
+                        out.pbr = val
+                    elif code_key == "roe":
+                        out.roe = val
+                    elif code_key == "dividendYield":
+                        out.dividend_yield = val
+                    elif code_key == "foreignOwnRate":
+                        out.foreign_ownership = val
+                    elif code_key == "high52wPrice":
+                        out.week52_high = val
+                    elif code_key == "low52wPrice":
+                        out.week52_low = val
+                    elif code_key == "debtRate":
+                        out.debt_ratio = val
+
+            # 컨센서스
+            consensus = data.get("consensus", {})
+            if consensus:
+                out.consensus_target = consensus.get("targetPrice", "")
+                out.consensus_opinion = consensus.get("investmentOpinion", "")
+
+            # 업종
+            out.sector = data.get("sector", "")
+            out.industry = data.get("industry", "")
+    except Exception as e:
+        out.errors.append(f"통합 정보: {e}")
+
+    # 3) 연간 재무제표
+    try:
+        resp = await _get(client, NAVER_FINANCIAL_URL.format(code=code))
+        if resp:
+            data = resp.json()
+            rows = data if isinstance(data, list) else data.get("financeInfos", [])
+            for row in rows[:5]:
+                entry = {
+                    "period": row.get("period", ""),
+                    "revenue": row.get("revenue", ""),
+                    "operating_profit": row.get("operatingProfit", ""),
+                    "net_income": row.get("netIncome", ""),
+                }
+                if any(v for v in entry.values()):
+                    out.annual_financials.append(entry)
+                # 최신 연도 매출/영업이익
+                if not out.revenue and row.get("revenue"):
+                    out.revenue = row.get("revenue", "")
+                    out.operating_profit = row.get("operatingProfit", "")
+                    out.net_income = row.get("netIncome", "")
+    except Exception as e:
+        out.errors.append(f"재무제표: {e}")
+
+
+async def _fetch_us_financials(
+    client: httpx.AsyncClient, symbol: str, out: StockFinancials,
+) -> None:
+    """Yahoo Finance API에서 미국 종목 재무 데이터 수집."""
+    out.source = "Yahoo Finance"
+
+    try:
+        resp = await _get(client, YAHOO_QUOTE_SUMMARY_URL.format(symbol=symbol))
+        if not resp:
+            out.errors.append("Yahoo Finance 조회 실패")
+            return
+
+        data = resp.json()
+        result = data.get("quoteSummary", {}).get("result", [{}])[0]
+
+        # defaultKeyStatistics
+        stats = result.get("defaultKeyStatistics", {})
+        out.per = _yahoo_fmt(stats.get("trailingPE") or stats.get("forwardPE"))
+        out.pbr = _yahoo_fmt(stats.get("priceToBook"))
+        out.roe = _yahoo_fmt(result.get("financialData", {}).get("returnOnEquity"), pct=True)
+
+        # summaryDetail
+        detail = result.get("summaryDetail", {})
+        out.dividend_yield = _yahoo_fmt(detail.get("dividendYield"), pct=True)
+        out.market_cap = _yahoo_fmt_large(detail.get("marketCap"))
+        out.week52_high = _yahoo_fmt(detail.get("fiftyTwoWeekHigh"))
+        out.week52_low = _yahoo_fmt(detail.get("fiftyTwoWeekLow"))
+
+        # financialData
+        fin = result.get("financialData", {})
+        out.current_price = _yahoo_raw(fin.get("currentPrice"))
+        out.revenue = _yahoo_fmt_large(fin.get("totalRevenue"))
+        out.operating_profit = _yahoo_fmt_large(fin.get("operatingMargins"))
+        out.net_income = _yahoo_fmt_large(fin.get("totalCashPerShare"))
+        out.consensus_target = _yahoo_fmt(fin.get("targetMeanPrice"))
+
+        out.name = out.name or symbol
+
+    except Exception as e:
+        out.errors.append(f"Yahoo Finance: {e}")
+
+
+def _yahoo_raw(obj) -> float:
+    """Yahoo Finance API의 nested dict에서 raw 값 추출."""
+    if isinstance(obj, dict):
+        return float(obj.get("raw", 0))
+    return float(obj or 0)
+
+
+def _yahoo_fmt(obj, pct: bool = False) -> str:
+    """Yahoo Finance API의 nested dict에서 포맷된 문자열 추출."""
+    if not obj:
+        return ""
+    if isinstance(obj, dict):
+        if "fmt" in obj:
+            return obj["fmt"]
+        raw = obj.get("raw", 0)
+        if pct:
+            return f"{raw * 100:.2f}%"
+        return f"{raw:.2f}"
+    return str(obj)
+
+
+def _yahoo_fmt_large(obj) -> str:
+    """큰 숫자를 억/조 단위로 포맷."""
+    if not obj:
+        return ""
+    if isinstance(obj, dict):
+        if "fmt" in obj:
+            return obj["fmt"]
+        raw = obj.get("raw", 0)
+    else:
+        raw = float(obj or 0)
+    if raw >= 1_000_000_000_000:
+        return f"${raw / 1_000_000_000_000:.2f}T"
+    if raw >= 1_000_000_000:
+        return f"${raw / 1_000_000_000:.2f}B"
+    if raw >= 1_000_000:
+        return f"${raw / 1_000_000:.2f}M"
+    return str(raw)
