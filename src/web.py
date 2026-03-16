@@ -40,7 +40,8 @@ from src.models.macro import (
     MacroMessageModel,
     MacroTopic,
 )
-from src.data.history import get_document_store, get_history_store
+from src.agents.macro_base import MacroDebateMessage
+from src.data.history import get_document_store, get_draft_store, get_history_store
 from src.data.market_data import fetch_macro_market_data, fetch_market_snapshot
 from src.data.pdf_extractor import extract_text_from_file, extract_text_from_file_with_vision
 from src.models.portfolio import Holding, Portfolio
@@ -73,10 +74,170 @@ class DebateSession(BaseModel):
 
 _jobs: dict[str, AnalysisJob] = {}
 _sessions: dict[str, DebateSession] = {}
+_macro_sessions: dict[str, "MacroDebateSession"] = {}
+
+
+# ── 직렬화 헬퍼 (세션 ↔ JSON) ──
+
+
+def _serialize_stock_session(session: DebateSession) -> dict[str, Any]:
+    """Stock DebateSession → JSON dict (드래프트 저장용)."""
+    return {
+        "mode": "stock",
+        "session_id": session.session_id,
+        "holding": session.holding.model_dump(),
+        "portfolio": session.portfolio.model_dump(),
+        "phase": session.phase.value,
+        "rounds": [r.model_dump() for r in session.rounds],
+        "opinions": [o.model_dump() for o in session.opinions],
+        "user_feedbacks": [fb.model_dump() for fb in session.user_feedbacks],
+        "api_key": session.api_key,
+        "model": session.model,
+        "market_context": session.market_context,
+        "topic": f"{session.holding.name} ({session.holding.ticker})",
+        "round_count": len(session.rounds),
+    }
+
+
+def _deserialize_stock_session(data: dict[str, Any]) -> DebateSession:
+    """JSON dict → Stock DebateSession."""
+    return DebateSession(
+        session_id=data["session_id"],
+        holding=Holding(**data["holding"]),
+        portfolio=Portfolio(**data["portfolio"]),
+        phase=DebatePhase(data["phase"]),
+        rounds=[DebateRound(**r) for r in data.get("rounds", [])],
+        opinions=[AgentOpinion(**o) for o in data.get("opinions", [])],
+        user_feedbacks=[UserFeedback(**fb) for fb in data.get("user_feedbacks", [])],
+        api_key=data.get("api_key", ""),
+        model=data.get("model", "claude-sonnet-4-20250514"),
+        market_context=data.get("market_context", ""),
+    )
+
+
+def _serialize_macro_session(session: MacroDebateSession) -> dict[str, Any]:
+    """Macro MacroDebateSession → JSON dict (드래프트 저장용)."""
+    rounds_data = []
+    for r in session.rounds:
+        rounds_data.append({
+            "round_number": r.round_number,
+            "round_type": r.round_type,
+            "messages": [
+                {
+                    "agent_name": m.agent_name,
+                    "round_number": m.round_number,
+                    "message_type": m.message_type,
+                    "stance": m.stance,
+                    "confidence": m.confidence,
+                    "content": m.content,
+                    "agreements": m.agreements,
+                    "disagreements": m.disagreements,
+                }
+                for m in r.messages
+            ],
+        })
+
+    opinions_data = []
+    for o in session.opinions:
+        opinions_data.append({
+            "agent_name": o.agent_name,
+            "agent_role": o.agent_role,
+            "stance": o.stance,
+            "confidence": o.confidence,
+            "reasoning": o.reasoning,
+            "key_points": o.key_points,
+            "risks": o.risks,
+            "action_items": o.action_items,
+        })
+
+    return {
+        "mode": "macro",
+        "session_id": session.session_id,
+        "topic": session.topic,
+        "context": session.context,
+        "api_key": session.api_key,
+        "model": session.model,
+        "market_context": session.market_context,
+        "phase": session.phase,
+        "rounds": rounds_data,
+        "opinions": opinions_data,
+        "user_feedbacks": [fb.model_dump() for fb in session.user_feedbacks],
+        "round_count": len(session.rounds),
+    }
+
+
+def _deserialize_macro_session(data: dict[str, Any]) -> MacroDebateSession:
+    """JSON dict → Macro MacroDebateSession."""
+    session = MacroDebateSession(
+        session_id=data["session_id"],
+        topic=data["topic"],
+        context=data.get("context", ""),
+        api_key=data.get("api_key", ""),
+        model=data.get("model", "claude-sonnet-4-20250514"),
+        market_context=data.get("market_context", ""),
+    )
+    session.phase = data.get("phase", "waiting_start")
+
+    for r_data in data.get("rounds", []):
+        messages = [
+            MacroDebateMessage(**m) for m in r_data.get("messages", [])
+        ]
+        session.rounds.append(MacroDebateRound(
+            round_number=r_data["round_number"],
+            round_type=r_data["round_type"],
+            messages=messages,
+        ))
+
+    for o_data in data.get("opinions", []):
+        session.opinions.append(MacroAgentOpinion(**o_data))
+
+    for fb_data in data.get("user_feedbacks", []):
+        session.user_feedbacks.append(UserFeedback(**fb_data))
+
+    return session
+
+
+def _save_stock_draft(session: DebateSession) -> None:
+    """Stock 세션 중간 저장."""
+    try:
+        snapshot = _serialize_stock_session(session)
+        get_draft_store().save(session.session_id, snapshot)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Stock draft save failed: {e}")
+
+
+def _save_macro_draft(session: MacroDebateSession) -> None:
+    """Macro 세션 중간 저장."""
+    try:
+        snapshot = _serialize_macro_session(session)
+        get_draft_store().save(session.session_id, snapshot)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Macro draft save failed: {e}")
+
+
+def _restore_drafts_to_memory() -> None:
+    """서버 시작 시 미완료 드래프트를 메모리에 복원."""
+    store = get_draft_store()
+    for draft_summary in store.list_all(limit=100):
+        sid = draft_summary["session_id"]
+        data = store.load(sid)
+        if not data:
+            continue
+        try:
+            mode = data.get("mode", "")
+            if mode == "stock" and sid not in _sessions:
+                _sessions[sid] = _deserialize_stock_session(data)
+            elif mode == "macro" and sid not in _macro_sessions:
+                _macro_sessions[sid] = _deserialize_macro_session(data)
+        except Exception:
+            continue
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _restore_drafts_to_memory()
     yield
 
 
@@ -250,6 +411,8 @@ async def debate_start(req: DebateStartRequest):
         session.error = str(e)
 
     _sessions[session_id] = session
+    if not session.error:
+        _save_stock_draft(session)
     return DebateSessionResponse(
         session_id=session_id,
         phase=session.phase,
@@ -280,6 +443,7 @@ async def debate_round2(session_id: str, feedback: FeedbackRequest | None = None
         )
         session.rounds.append(round2)
         session.phase = DebatePhase.ROUND2_DONE
+        _save_stock_draft(session)
     except Exception as e:
         session.error = str(e)
 
@@ -313,6 +477,7 @@ async def debate_round3(session_id: str, feedback: FeedbackRequest | None = None
         )
         session.rounds.append(round3)
         session.phase = DebatePhase.ROUND3_DONE
+        _save_stock_draft(session)
     except Exception as e:
         session.error = str(e)
 
@@ -395,6 +560,8 @@ async def debate_synthesize(session_id: str, feedback: FeedbackRequest | None = 
         }
         _debate_history_store.append(history_record)
         get_history_store().save(session_id, history_record)
+        # 완료된 토론의 드래프트 삭제
+        get_draft_store().delete(session_id)
     except Exception as e:
         session.error = str(e)
 
@@ -448,9 +615,6 @@ class MacroDebateSession:
         self.user_feedbacks: list[UserFeedback] = []
         self.result: dict | None = None
         self.error: str | None = None
-
-
-_macro_sessions: dict[str, MacroDebateSession] = {}
 
 
 class MacroStartRequest(BaseModel):
@@ -567,6 +731,8 @@ async def macro_start(req: MacroStartRequest):
         session.error = str(e)
 
     _macro_sessions[session_id] = session
+    if not session.error:
+        _save_macro_draft(session)
     return _macro_response(session)
 
 
@@ -592,6 +758,7 @@ async def macro_round2(session_id: str, feedback: FeedbackRequest | None = None)
         )
         session.rounds.append(round2)
         session.phase = "round2_done"
+        _save_macro_draft(session)
     except Exception as e:
         session.error = str(e)
 
@@ -620,6 +787,7 @@ async def macro_round3(session_id: str, feedback: FeedbackRequest | None = None)
         )
         session.rounds.append(round3)
         session.phase = "round3_done"
+        _save_macro_draft(session)
     except Exception as e:
         session.error = str(e)
 
@@ -731,6 +899,8 @@ async def macro_synthesize(session_id: str, feedback: FeedbackRequest | None = N
         }
         _debate_history_store.append(history_record)
         get_history_store().save(session.session_id, history_record)
+        # 완료된 토론의 드래프트 삭제
+        get_draft_store().delete(session.session_id)
     except Exception as e:
         session.error = str(e)
         result = None
@@ -784,6 +954,117 @@ async def delete_debate_history(session_id: str):
     if get_history_store().delete(session_id):
         return {"deleted": True}
     raise HTTPException(status_code=404, detail="토론 기록을 찾을 수 없습니다.")
+
+
+# ── 중간 저장 / 이어하기 (Draft & Resume) ──
+
+
+class ResumeRequest(BaseModel):
+    api_key: str | None = Field(default=None, description="API 키 (드래프트에 저장된 키가 만료된 경우)")
+    model: str | None = Field(default=None, description="모델 오버라이드")
+
+
+@app.get("/api/drafts")
+async def list_drafts():
+    """미완료 토론 드래프트 목록."""
+    return {"drafts": get_draft_store().list_all()}
+
+
+@app.get("/api/drafts/{session_id}")
+async def get_draft(session_id: str):
+    """특정 드래프트 상세 조회."""
+    data = get_draft_store().load(session_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="드래프트를 찾을 수 없습니다.")
+    # api_key는 응답에서 제거
+    safe = {k: v for k, v in data.items() if k != "api_key"}
+    return safe
+
+
+@app.delete("/api/drafts/{session_id}")
+async def delete_draft(session_id: str):
+    """드래프트 삭제."""
+    # 메모리에서도 제거
+    _sessions.pop(session_id, None)
+    _macro_sessions.pop(session_id, None)
+    if get_draft_store().delete(session_id):
+        return {"deleted": True}
+    raise HTTPException(status_code=404, detail="드래프트를 찾을 수 없습니다.")
+
+
+@app.post("/api/debate/resume/{session_id}", response_model=DebateSessionResponse)
+async def debate_resume(session_id: str, req: ResumeRequest | None = None):
+    """
+    중단된 종목 토론을 이어서 진행.
+
+    메모리에 세션이 있으면 그대로 사용하고,
+    없으면 드래프트에서 복원한다. 복원된 세션의 현재 phase에서
+    다음 라운드를 호출하면 된다.
+    """
+    session = _sessions.get(session_id)
+    if not session:
+        data = get_draft_store().load(session_id)
+        if not data or data.get("mode") != "stock":
+            raise HTTPException(status_code=404, detail="종목 토론 드래프트를 찾을 수 없습니다.")
+        session = _deserialize_stock_session(data)
+        _sessions[session_id] = session
+
+    # API 키/모델 오버라이드
+    if req:
+        if req.api_key:
+            session.api_key = req.api_key
+        if req.model:
+            session.model = req.model
+
+    # api_key가 비어있으면 환경변수에서 시도
+    if not session.api_key:
+        session.api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+
+    return DebateSessionResponse(
+        session_id=session_id,
+        phase=session.phase,
+        rounds=session.rounds,
+        result=session.result,
+        error=session.error,
+    )
+
+
+@app.post("/api/macro/resume/{session_id}", response_model=MacroSessionResponse)
+async def macro_resume(session_id: str, req: ResumeRequest | None = None):
+    """
+    중단된 거시 토론을 이어서 진행.
+
+    메모리에 세션이 있으면 그대로 사용하고,
+    없으면 드래프트에서 복원한다.
+    """
+    session = _macro_sessions.get(session_id)
+    if not session:
+        data = get_draft_store().load(session_id)
+        if not data or data.get("mode") != "macro":
+            raise HTTPException(status_code=404, detail="거시 토론 드래프트를 찾을 수 없습니다.")
+        session = _deserialize_macro_session(data)
+        _macro_sessions[session_id] = session
+
+    # API 키/모델 오버라이드
+    if req:
+        if req.api_key:
+            session.api_key = req.api_key
+        if req.model:
+            session.model = req.model
+
+    if not session.api_key:
+        session.api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+
+    result = None
+    if session.phase == "synthesized" and session.result:
+        # 이미 완료된 세션이면 결과도 포함
+        from src.models.macro import MacroDebateResult
+        result = MacroDebateResult(
+            topic=session.topic,
+            rounds=[_round_to_model(r) for r in session.rounds],
+        )
+
+    return _macro_response(session, result=result)
 
 
 # ── PDF/파일 업로드 (영구 저장) ──

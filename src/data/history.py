@@ -1,8 +1,11 @@
 """
-Persistent debate history & document storage using JSON files.
+Persistent debate history, draft (mid-debate checkpoint) & document storage.
 
 각 토론 결과와 업로드 문서를 JSON 파일로 영구 저장하고
 피드백 루프를 통해 이후 토론에 반영한다.
+
+토론이 최종 결론에 도달하기 전에 중단되어도 draft로 자동 저장되며,
+이후 이어서 진행(resume)할 수 있다.
 """
 
 from __future__ import annotations
@@ -189,10 +192,80 @@ class DocumentStore:
         return "\n".join(lines) if len(lines) > 2 else ""
 
 
+# ── 토론 중간 저장 (Draft) ──
+
+_DEFAULT_DRAFT_DIR = Path("data/drafts")
+
+
+class DraftStore:
+    """토론 중간 저장소. 라운드 완료 시마다 자동 체크포인트."""
+
+    def __init__(self, directory: str | Path | None = None):
+        self.directory = Path(directory) if directory else _DEFAULT_DRAFT_DIR
+        _ensure_dir(self.directory)
+
+    def _path(self, session_id: str) -> Path:
+        return self.directory / f"{session_id}.json"
+
+    def save(self, session_id: str, snapshot: dict[str, Any]) -> Path:
+        """세션 스냅샷 저장. 매 라운드 완료 시 호출."""
+        snapshot.setdefault("session_id", session_id)
+        snapshot["updated_at"] = datetime.now(timezone.utc).isoformat()
+        snapshot.setdefault("created_at", snapshot["updated_at"])
+        path = self._path(session_id)
+        path.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8")
+        logger.info(f"Draft saved: {path} (phase={snapshot.get('phase', '?')})")
+        return path
+
+    def load(self, session_id: str) -> dict[str, Any] | None:
+        """드래프트 로드."""
+        path = self._path(session_id)
+        if not path.exists():
+            return None
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception as e:
+            logger.warning(f"Failed to load draft {path}: {e}")
+            return None
+
+    def delete(self, session_id: str) -> bool:
+        """드래프트 삭제 (synthesize 완료 후 정리 용도)."""
+        path = self._path(session_id)
+        if path.exists():
+            path.unlink()
+            return True
+        return False
+
+    def list_all(self, limit: int = 50) -> list[dict[str, Any]]:
+        """미완료 드래프트 목록 (최신순)."""
+        records = []
+        files = sorted(
+            self.directory.glob("*.json"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        for f in files[:limit]:
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                records.append({
+                    "session_id": data.get("session_id", f.stem),
+                    "mode": data.get("mode", ""),
+                    "topic": data.get("topic", ""),
+                    "phase": data.get("phase", ""),
+                    "round_count": data.get("round_count", 0),
+                    "created_at": data.get("created_at", ""),
+                    "updated_at": data.get("updated_at", ""),
+                })
+            except Exception:
+                continue
+        return records
+
+
 # ── 싱글턴 인스턴스 ──
 
 _store: DebateHistoryStore | None = None
 _doc_store: DocumentStore | None = None
+_draft_store: DraftStore | None = None
 
 
 def get_history_store() -> DebateHistoryStore:
@@ -209,3 +282,11 @@ def get_document_store() -> DocumentStore:
     if _doc_store is None:
         _doc_store = DocumentStore()
     return _doc_store
+
+
+def get_draft_store() -> DraftStore:
+    """글로벌 드래프트 스토어 인스턴스."""
+    global _draft_store
+    if _draft_store is None:
+        _draft_store = DraftStore()
+    return _draft_store
