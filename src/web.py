@@ -76,6 +76,7 @@ class DebateSession(BaseModel):
 
 _jobs: dict[str, AnalysisJob] = {}
 _sessions: dict[str, DebateSession] = {}
+_session_usage: dict[str, UsageTracker] = {}  # 종목 토론 세션별 비용 추적
 _macro_sessions: dict[str, "MacroDebateSession"] = {}
 
 
@@ -347,7 +348,12 @@ class DebateSessionResponse(BaseModel):
 
 
 def _get_orchestrator(session: DebateSession) -> DebateOrchestrator:
-    analyzer = PortfolioAnalyzer(api_key=session.api_key, model=session.model)
+    tracker = _session_usage.get(session.session_id)
+    analyzer = PortfolioAnalyzer(
+        api_key=session.api_key,
+        model=session.model,
+        usage_tracker=tracker,
+    )
     return analyzer.engine.debate_orchestrator
 
 
@@ -429,6 +435,7 @@ async def debate_start(req: DebateStartRequest):
         model=req.model,
         market_context=market_context,
     )
+    _session_usage[session_id] = UsageTracker()
 
     try:
         orchestrator = _get_orchestrator(session)
@@ -1241,11 +1248,55 @@ async def patch_settings(updates: dict):
 
 @app.get("/api/macro/{session_id}/usage")
 async def macro_usage(session_id: str):
-    """세션의 API 사용량/비용 조회."""
+    """매크로 세션의 API 사용량/비용 조회."""
     session = _macro_sessions.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
     return session.usage_tracker.summary()
+
+
+@app.get("/api/debate/{session_id}/usage")
+async def debate_usage(session_id: str):
+    """종목 토론 세션의 API 사용량/비용 조회."""
+    tracker = _session_usage.get(session_id)
+    if not tracker:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+    return tracker.summary()
+
+
+@app.get("/api/usage/all")
+async def all_usage():
+    """모든 활성 세션의 API 사용량 합계."""
+    total_calls = 0
+    total_input = 0
+    total_output = 0
+    total_usd = 0.0
+
+    # 종목 토론 세션
+    for tracker in _session_usage.values():
+        total_calls += tracker.call_count
+        total_input += tracker.total_input_tokens
+        total_output += tracker.total_output_tokens
+        total_usd += tracker.total_cost_usd
+
+    # 매크로 세션
+    for session in _macro_sessions.values():
+        t = session.usage_tracker
+        total_calls += t.call_count
+        total_input += t.total_input_tokens
+        total_output += t.total_output_tokens
+        total_usd += t.total_cost_usd
+
+    return {
+        "call_count": total_calls,
+        "total_input_tokens": total_input,
+        "total_output_tokens": total_output,
+        "total_tokens": total_input + total_output,
+        "total_cost_usd": round(total_usd, 4),
+        "total_cost_krw": round(total_usd * 1400, 0),
+        "debate_sessions": len(_session_usage),
+        "macro_sessions": len(_macro_sessions),
+    }
 
 
 @app.get("/api/health")

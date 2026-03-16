@@ -321,6 +321,31 @@
         .uploaded-file .uf-size { color: var(--text-dim); }
         .uploaded-file .uf-remove { color: var(--text-dim); cursor: pointer; background: none; border: none; font-size: 0.8rem; }
         .uploaded-file .uf-remove:hover { color: var(--red); }
+
+        /* Settings panel */
+        .settings-panel { display: none; flex: 1; overflow-y: auto; padding: 1.5rem; max-width: 700px; margin: 0 auto; width: 100%; }
+        .settings-panel.visible { display: block; }
+        .settings-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem; margin-bottom: 1rem; }
+        .settings-section h3 { font-size: 0.9rem; color: var(--accent-light); margin-bottom: 0.8rem; font-weight: 600; }
+        .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+        .settings-row:last-child { border-bottom: none; }
+        .settings-row label { font-size: 0.82rem; color: var(--text); flex: 1; }
+        .settings-row .hint { font-size: 0.7rem; color: var(--text-dim); margin-top: 0.15rem; }
+        .settings-row input[type="text"], .settings-row input[type="password"], .settings-row input[type="number"], .settings-row select {
+            background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+            padding: 0.4rem 0.6rem; color: var(--text); font-size: 0.82rem; width: 250px; outline: none;
+        }
+        .settings-row input:focus { border-color: var(--accent); }
+        .settings-btn { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1.2rem; cursor: pointer; font-size: 0.82rem; font-weight: 600; }
+        .settings-btn:hover { background: var(--accent-light); }
+        .settings-btn.secondary { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
+        .settings-btn.secondary:hover { background: var(--border); }
+        .settings-save-msg { font-size: 0.75rem; color: var(--green); margin-left: 0.8rem; opacity: 0; transition: opacity 0.3s; }
+        .settings-save-msg.show { opacity: 1; }
+        .usage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; }
+        .usage-card { background: var(--surface-2); border-radius: 8px; padding: 0.8rem; text-align: center; }
+        .usage-card .val { font-size: 1.1rem; font-weight: 700; color: var(--cyan); }
+        .usage-card .lbl { font-size: 0.7rem; color: var(--text-dim); margin-top: 0.2rem; }
     </style>
 </head>
 <body>
@@ -341,6 +366,7 @@
         <button class="mode-tab active" id="tabStock" onclick="switchMode('stock')">종목 분석</button>
         <button class="mode-tab" id="tabMacro" onclick="switchMode('macro')">거시 경제 토론</button>
         <button class="mode-tab" id="tabHistory" onclick="switchMode('history')">토론 히스토리</button>
+        <button class="mode-tab" id="tabSettings" onclick="switchMode('settings')">설정</button>
     </div>
 
     <!-- Market Ticker -->
@@ -457,6 +483,81 @@
         <div id="historyContent"></div>
     </div>
 
+    <!-- Settings Panel -->
+    <div class="settings-panel" id="settingsPanel">
+        <!-- API Keys -->
+        <div class="settings-section">
+            <h3>API 키</h3>
+            <div class="settings-row">
+                <div>
+                    <label>Anthropic API Key</label>
+                    <div class="hint">Claude 모델 호출에 사용 (sk-ant-...)</div>
+                </div>
+                <input type="password" id="setAnthropicKey" placeholder="sk-ant-api03-...">
+            </div>
+            <div class="settings-row">
+                <div>
+                    <label>DART API Key</label>
+                    <div class="hint">국내 종목 공시 재무제표 자동 수집 (opendart.fss.or.kr 에서 무료 발급)</div>
+                </div>
+                <input type="text" id="setDartKey" placeholder="DART API 키 입력">
+            </div>
+        </div>
+
+        <!-- Model & Parameters -->
+        <div class="settings-section">
+            <h3>모델 / 파라미터</h3>
+            <div class="settings-row">
+                <div>
+                    <label>기본 모델</label>
+                    <div class="hint">토론에 사용할 Claude 모델</div>
+                </div>
+                <select id="setDefaultModel">
+                    <option value="claude-opus-4-20250514">Opus 4</option>
+                    <option value="claude-opus-4-6">Opus 4.6</option>
+                    <option value="claude-sonnet-4-20250514">Sonnet 4</option>
+                    <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
+                </select>
+            </div>
+            <div class="settings-row">
+                <div>
+                    <label>Max Tokens</label>
+                    <div class="hint">에이전트 응답 최대 토큰 수</div>
+                </div>
+                <input type="number" id="setMaxTokens" value="4096" min="512" max="16384">
+            </div>
+            <div class="settings-row">
+                <div>
+                    <label>컨텍스트 예산 (문자)</label>
+                    <div class="hint">에이전트에게 전달되는 최대 컨텍스트 문자 수</div>
+                </div>
+                <input type="number" id="setMaxContextChars" value="40000" min="5000" max="200000">
+            </div>
+        </div>
+
+        <!-- Cost Tracking -->
+        <div class="settings-section">
+            <h3>비용 추적</h3>
+            <div class="settings-row">
+                <div>
+                    <label>비용 추적 활성화</label>
+                    <div class="hint">API 호출 비용을 세션별로 기록</div>
+                </div>
+                <select id="setTrackCosts">
+                    <option value="true">활성화</option>
+                    <option value="false">비활성화</option>
+                </select>
+            </div>
+            <div id="usageStats"></div>
+        </div>
+
+        <!-- Save -->
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem;">
+            <button class="settings-btn" onclick="saveSettings()">설정 저장</button>
+            <span class="settings-save-msg" id="settingsSaveMsg">저장 완료</span>
+        </div>
+    </div>
+
     <!-- Input Area -->
     <div class="input-area" id="inputArea" style="display:none;">
         <div class="input-row">
@@ -503,7 +604,7 @@
             if (mode === currentMode) return;
 
             // Save current mode state (only for stock/macro)
-            if (currentMode !== 'history') {
+            if (currentMode !== 'history' && currentMode !== 'settings') {
                 const prev = modeState[currentMode];
                 const dynamicNodes = [...chat.children].filter(c => c.id !== 'welcomeMsg' && c.id !== 'stockSetup' && c.id !== 'macroSetup');
                 prev.chatHTML = dynamicNodes.map(n => n.outerHTML).join('');
@@ -518,21 +619,35 @@
             document.getElementById('tabStock').className = 'mode-tab' + (mode === 'stock' ? ' active' : '');
             document.getElementById('tabMacro').className = 'mode-tab' + (mode === 'macro' ? ' active' : '');
             document.getElementById('tabHistory').className = 'mode-tab' + (mode === 'history' ? ' active' : '');
+            document.getElementById('tabSettings').className = 'mode-tab' + (mode === 'settings' ? ' active' : '');
 
             const historyPanel = document.getElementById('historyPanel');
+            const settingsPanel = document.getElementById('settingsPanel');
+
+            if (mode === 'settings') {
+                chat.style.display = 'none';
+                inputArea.style.display = 'none';
+                document.getElementById('phaseBar').style.display = 'none';
+                historyPanel.classList.remove('visible');
+                settingsPanel.classList.add('visible');
+                loadSettings();
+                return;
+            }
 
             if (mode === 'history') {
                 // Hide chat/input, show history panel
                 chat.style.display = 'none';
                 inputArea.style.display = 'none';
                 document.getElementById('phaseBar').style.display = 'none';
+                settingsPanel.classList.remove('visible');
                 historyPanel.classList.add('visible');
                 loadHistoryList();
                 return;
             }
 
-            // Leaving history → show chat
+            // Leaving history/settings → show chat
             historyPanel.classList.remove('visible');
+            settingsPanel.classList.remove('visible');
             chat.style.display = '';
 
             document.getElementById('stockSetup').classList.toggle('hidden', mode !== 'stock');
@@ -1336,6 +1451,78 @@
 
         // 페이지 로드 시 기존 문서 목록 표시
         refreshDocumentList();
+
+        // ── Settings ──
+        async function loadSettings() {
+            try {
+                const res = await fetch('/api/settings');
+                const s = await res.json();
+                document.getElementById('setDefaultModel').value = s.default_model || 'claude-opus-4-20250514';
+                document.getElementById('setMaxTokens').value = s.max_tokens || 4096;
+                document.getElementById('setMaxContextChars').value = s.max_total_context_chars || 40000;
+                document.getElementById('setTrackCosts').value = s.track_costs !== false ? 'true' : 'false';
+                document.getElementById('setDartKey').value = s.dart_api_key || '';
+                // Anthropic key는 서버에 저장하지 않으므로 top-bar의 값을 미러링
+                document.getElementById('setAnthropicKey').value = document.getElementById('apiKey').value || '';
+            } catch(e) { /* ignore */ }
+
+            // 세션 비용 요약 로드
+            loadUsageStats();
+        }
+
+        async function saveSettings() {
+            const updates = {
+                default_model: document.getElementById('setDefaultModel').value,
+                max_tokens: parseInt(document.getElementById('setMaxTokens').value) || 4096,
+                max_total_context_chars: parseInt(document.getElementById('setMaxContextChars').value) || 40000,
+                track_costs: document.getElementById('setTrackCosts').value === 'true',
+                dart_api_key: document.getElementById('setDartKey').value.trim(),
+            };
+            try {
+                const res = await fetch('/api/settings', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates),
+                });
+                if (res.ok) {
+                    // Anthropic key → top-bar에도 반영
+                    const anthKey = document.getElementById('setAnthropicKey').value.trim();
+                    if (anthKey) document.getElementById('apiKey').value = anthKey;
+                    // 모델 선택도 top-bar에 반영
+                    document.getElementById('model').value = updates.default_model;
+
+                    const msg = document.getElementById('settingsSaveMsg');
+                    msg.classList.add('show');
+                    setTimeout(() => msg.classList.remove('show'), 2000);
+                }
+            } catch(e) { alert('설정 저장 실패'); }
+        }
+
+        async function loadUsageStats() {
+            const statsEl = document.getElementById('usageStats');
+            try {
+                const res = await fetch('/api/usage/all');
+                if (!res.ok) throw new Error();
+                const u = await res.json();
+
+                if (u.call_count === 0) {
+                    statsEl.innerHTML = '<div style="font-size:0.8rem;color:var(--text-dim);margin-top:0.5rem;">현재 세션의 API 사용량이 없습니다. 토론을 시작하면 여기에 비용이 표시됩니다.</div>';
+                    return;
+                }
+
+                statsEl.innerHTML = `
+                    <div style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem;">종목 토론 ${u.debate_sessions}건 + 매크로 토론 ${u.macro_sessions}건</div>
+                    <div class="usage-grid">
+                        <div class="usage-card"><div class="val">${u.call_count}</div><div class="lbl">API 호출 수</div></div>
+                        <div class="usage-card"><div class="val">${u.total_tokens.toLocaleString()}</div><div class="lbl">총 토큰</div></div>
+                        <div class="usage-card"><div class="val">$${u.total_cost_usd.toFixed(4)}</div><div class="lbl">비용 (USD)</div></div>
+                        <div class="usage-card"><div class="val">${Math.round(u.total_cost_krw).toLocaleString()}원</div><div class="lbl">비용 (KRW)</div></div>
+                    </div>
+                `;
+            } catch(e) {
+                statsEl.innerHTML = '<div style="font-size:0.8rem;color:var(--text-dim);margin-top:0.5rem;">비용 데이터를 불러올 수 없습니다.</div>';
+            }
+        }
     </script>
 </body>
 </html>

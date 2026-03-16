@@ -8,6 +8,7 @@ Portfolio Analyzer — 포트폴리오 분석기.
 from __future__ import annotations
 
 from src.api.client import ClaudeClient
+from src.config import UsageTracker
 from src.engine.reasoning import ReasoningEngine
 from src.engine.question_frame import QuestionFrame
 from src.models.analysis import PortfolioAnalysis, HoldingAnalysis
@@ -23,8 +24,9 @@ class PortfolioAnalyzer:
         model: str = "claude-sonnet-4-20250514",
         custom_frames: list[QuestionFrame] | None = None,
         agents: list | None = None,
+        usage_tracker: UsageTracker | None = None,
     ):
-        self.client = ClaudeClient(api_key=api_key, model=model)
+        self.client = ClaudeClient(api_key=api_key, model=model, usage_tracker=usage_tracker)
         self.engine = ReasoningEngine(
             client=self.client,
             frames=custom_frames,
