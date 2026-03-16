@@ -12,7 +12,7 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -42,7 +42,7 @@ from src.models.macro import (
 )
 from src.data.history import get_document_store, get_history_store
 from src.data.market_data import fetch_macro_market_data, fetch_market_snapshot
-from src.data.pdf_extractor import extract_text_from_file
+from src.data.pdf_extractor import extract_text_from_file, extract_text_from_file_with_vision
 from src.models.portfolio import Holding, Portfolio
 
 
@@ -790,12 +790,19 @@ async def delete_debate_history(session_id: str):
 
 
 @app.post("/api/upload/document")
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(
+    file: UploadFile = File(...),
+    use_vision: bool = Form(False),
+    api_key: str = Form(""),
+):
     """
     PDF/TXT/CSV 파일을 업로드하여 영구 지식 베이스에 추가.
 
     업로드된 문서는 이후 모든 토론(종목/거시)에 자동 반영되며
     서버를 재시작해도 유지된다.
+
+    use_vision=True로 설정하면 그래프/차트/모식도를 Claude Vision으로 해석한다.
+    Vision 사용 시 api_key가 필요하다.
     """
     if not file.filename:
         raise HTTPException(status_code=400, detail="파일명이 없습니다.")
@@ -806,7 +813,19 @@ async def upload_document(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="파일 크기는 10MB 이하여야 합니다.")
 
     try:
-        extracted = extract_text_from_file(content, file.filename)
+        if use_vision and file.filename.lower().endswith(".pdf"):
+            resolved_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+            if not resolved_key:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Vision 분석에는 ANTHROPIC_API_KEY가 필요합니다.",
+                )
+            client = ClaudeClient(api_key=resolved_key)
+            extracted = await extract_text_from_file_with_vision(content, file.filename, client)
+        else:
+            extracted = extract_text_from_file(content, file.filename)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -822,6 +841,7 @@ async def upload_document(file: UploadFile = File(...)):
         "filename": file.filename,
         "doc_id": entry["doc_id"],
         "text_length": len(extracted),
+        "vision_used": use_vision and file.filename.lower().endswith(".pdf"),
         "preview": extracted[:500] + "..." if len(extracted) > 500 else extracted,
     }
 

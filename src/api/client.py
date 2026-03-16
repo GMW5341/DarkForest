@@ -2,10 +2,12 @@
 Claude API Client — Anthropic API 통합 레이어.
 
 추론 엔진이 Claude와 통신하기 위한 클라이언트.
+텍스트 전용 ask()와 이미지 포함 ask_with_images()를 제공한다.
 """
 
 from __future__ import annotations
 
+import base64
 import os
 
 import anthropic
@@ -45,6 +47,52 @@ class ClaudeClient:
             ],
         )
         # 텍스트 블록만 추출
+        text_parts = [
+            block.text
+            for block in message.content
+            if block.type == "text"
+        ]
+        return "\n".join(text_parts)
+
+    async def ask_with_images(
+        self,
+        text_prompt: str,
+        images: list[tuple[bytes, str]],
+        system: str = "",
+    ) -> str:
+        """
+        이미지와 텍스트를 함께 보내고 응답을 받는다 (Vision).
+
+        Args:
+            text_prompt: 텍스트 프롬프트
+            images: (이미지 바이트, media_type) 튜플 리스트
+                    media_type 예: "image/png", "image/jpeg"
+            system: 시스템 프롬프트
+
+        Returns:
+            Claude의 텍스트 응답
+        """
+        content: list[dict] = []
+
+        for img_bytes, media_type in images:
+            content.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": media_type,
+                    "data": base64.standard_b64encode(img_bytes).decode("ascii"),
+                },
+            })
+
+        content.append({"type": "text", "text": text_prompt})
+
+        message = await self._client.messages.create(
+            model=self.model,
+            max_tokens=self.max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": content}],
+        )
+
         text_parts = [
             block.text
             for block in message.content
